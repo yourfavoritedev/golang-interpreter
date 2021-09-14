@@ -69,7 +69,9 @@ func (p *Parser) parseIdentifier() ast.Expression {
 	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 }
 
-// nextToken simply sets the tokens of p to the next sequential tokens
+// nextToken sets the tokens of the Parser to the next sequential tokens provided by the lexer.
+// When called, the lexer will examine the next character, produce a new token
+// and advance its position.
 func (p *Parser) nextToken() {
 	p.curToken = p.peekToken
 	p.peekToken = p.l.NextToken()
