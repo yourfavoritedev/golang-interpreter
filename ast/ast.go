@@ -18,7 +18,7 @@ type Node interface {
 // Statement is the interface that embeds the Node interface and the statementNode method
 //
 // statementNode() is a dummy method that does not do anything practical at the moment,
-// it simply distinguishes the Statement node
+// it simply distinguishes the Statement interface
 type Statement interface {
 	Node
 	statementNode()
@@ -27,7 +27,7 @@ type Statement interface {
 // Expression is the interface that embeds the Node interface and the expressionNode method
 //
 // expressionNode() is a dummy method that does not do anything practical at the moment,
-// it simply distinguishes the Expression node
+// it simply distinguishes the Expression interface
 type Expression interface {
 	Node
 	expressionNode()
@@ -69,7 +69,7 @@ func (ls *LetStatement) String() string {
 	return out.String()
 }
 
-// Identifier holds the identifier of a binding eg: x in `let x = 5` and implmements the Expression interface
+// Identifier holds the identifier of a binding eg: x in `let x = 5` and implements the Expression interface
 type Identifier struct {
 	Token token.Token // the token.IDENT token
 	// Value is used to represent the name in a variable binding x in `let x = 5`,
@@ -121,7 +121,7 @@ type ExpressionStatement struct {
 	Expression Expression
 }
 
-// statementNode is implmented to allow ExpressionStatement to be served as a Statement
+// statementNode is implemented to allow ExpressionStatement to be served as a Statement
 func (es *ExpressionStatement) statementNode() {}
 
 // TokenLiteral returns the literal value (Token.Literal) for the first token in the expression

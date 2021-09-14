@@ -22,7 +22,8 @@ const (
 )
 
 // Parser holds information on the lexer that is producing tokens,
-// the current token being parsed, the next token (peekToken)
+// the current token being parsed (curToken), the next token (peekToken),
+// errors that were encourntered during parsing
 // and maps of its tokens with their parsing functions.
 type Parser struct {
 	l         *lexer.Lexer
@@ -53,10 +54,10 @@ func New(l *lexer.Lexer) *Parser {
 	p.nextToken()
 	p.nextToken()
 
-	// initialize prefixParseFns map on Parser
+	// initialize prefixParseFns map on the parser
 	p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
-	// register token.IDENT with the parseIdentifier function to the map
-	// now whenever we encounter a token of type token.IDENT it will call
+	// register token.IDENT with the parseIdentifier function to the map.
+	// Now whenever we encounter a token of type token.IDENT it will call
 	// the parseIdentifier parsing function
 	p.registerPrefix(token.IDENT, p.parseIdentifier)
 
@@ -156,8 +157,8 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
 	stmt.Expression = p.parseExpression(LOWEST)
 
-	// advance tokens if peekToken is a semicolon,
-	// assumes everything before the semicolon has been examined (5;),
+	// advance tokens if peekToken is a semicolon.
+	// we can assume everything before the semicolon has been examined (5;),
 	// semicolons are optional and not required by expression statements
 	if p.peekTokenIs(token.SEMICOLON) {
 		p.nextToken()
