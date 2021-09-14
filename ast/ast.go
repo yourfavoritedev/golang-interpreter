@@ -46,6 +46,7 @@ type LetStatement struct {
 	Value Expression
 }
 
+// statementNode is implemented to allow LetStatement to be served as a Statement
 func (ls *LetStatement) statementNode() {}
 
 // TokenLiteral returns the literal value (Token.Literal) for a token of type Token.LET
@@ -75,6 +76,7 @@ type Identifier struct {
 	Value string
 }
 
+// expressionNode is implemented to allow Identifier to be served as an Expression
 func (i *Identifier) expressionNode() {}
 
 // TokenLiteral returns the literal value (Token.Literal) for a token of type Token.IDENT
@@ -90,6 +92,7 @@ type ReturnStatement struct {
 	ReturnValue Expression
 }
 
+// statementNode is implmented to allow ReturnStatement to be served as a Statement
 func (rs *ReturnStatement) statementNode() {}
 
 // TokenLiteral returns the literal value (Token.Literal) for a token of type token.RETURN
@@ -118,6 +121,7 @@ type ExpressionStatement struct {
 	Expression Expression
 }
 
+// statementNode is implmented to allow ExpressionStatement to be served as a Statement
 func (es *ExpressionStatement) statementNode() {}
 
 // TokenLiteral returns the literal value (Token.Literal) for the first token in the expression

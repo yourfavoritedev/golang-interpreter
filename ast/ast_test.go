@@ -34,6 +34,19 @@ func TestString(t *testing.T) {
 		},
 	}
 
+	// validate the first statement is a LetStatement
+	letStmt, ok := program.Statements[0].(*LetStatement)
+	if !ok {
+		t.Fatalf("program.Statements[0] not LetStatement. got=%T", letStmt)
+	}
+
+	// validate the second statement is a ReturnStatement
+	returnStmt, ok := program.Statements[1].(*ReturnStatement)
+	if !ok {
+		t.Fatalf("program.Statements[0] not ReturnStatement. got=%T", returnStmt)
+	}
+
+	// validate the Program string matches expectations
 	if program.String() != "let myVar = anotherVar;return myVar;" {
 		t.Errorf("program.String() wrong. got %q", program.String())
 	}
