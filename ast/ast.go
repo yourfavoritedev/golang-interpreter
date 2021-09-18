@@ -135,6 +135,81 @@ func (es *ExpressionStatement) String() string {
 	return ""
 }
 
+// IntegerLiteral holds a Token field (Token{TokenType, Literal}) for the integer and
+// a Value field for the actual integer value
+type IntegerLiteral struct {
+	Token token.Token
+	Value int64
+}
+
+// expressionNode is implemented to allow IntegerLiteral to be served as an Expression
+func (il *IntegerLiteral) expressionNode() {}
+
+// TokenLiteral returns the literal value (Token.Literal) for the the integer
+func (il *IntegerLiteral) TokenLiteral() string { return il.Token.Literal }
+
+// String constructs the integer value as a string
+func (il *IntegerLiteral) String() string { return il.Token.Literal }
+
+// PrefixExpression holds a Token field for the input,
+// Operator is a string that contains either "-" or "!" and
+// Right contains the expression to the right of the operator.
+type PrefixExpression struct {
+	Token    token.Token
+	Operator string
+	Right    Expression
+}
+
+// expressionNode is implemented to allow PrefixExpression to be served as an Expression
+func (pe *PrefixExpression) expressionNode() {}
+
+// TokenLiteral returns the literal value (Token.Literal) for the the PrefixExpression input
+func (pe *PrefixExpression) TokenLiteral() string { return pe.Token.Literal }
+
+// String constructs a string for the PrefixExpression,
+// explicitly adding paranthesis around the constructed string to distinguish it from other expressions
+func (pe *PrefixExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("(")
+	out.WriteString(pe.Operator)
+	// typically Right will be an IntegerLiteral, so we can call the string method on it
+	out.WriteString(pe.Right.String())
+	out.WriteString(")")
+
+	return out.String()
+}
+
+// PrefixExpression holds a Token field for the input,
+// Left contains the expression to the right of the operator.
+// Operator is a string that contains either "-" or "!" and
+// Right contains the expression to the right of the operator.
+type InfixExpression struct {
+	Token    token.Token
+	Left     Expression
+	Operator string
+	Right    Expression
+}
+
+// expressionNode is implemented to allow InfixExpression to be served as an Expression
+func (ie *InfixExpression) expressionNode() {}
+
+// TokenLiteral returns the literal value (Token.Literal) for the the InfixExpression input
+func (ie *InfixExpression) TokenLiteral() string { return ie.Token.Literal }
+
+// String constructs a string for the InfixExpression,
+// explicitly adding paranthesis around the constructed string to distinguish it from other expressions
+func (ie *InfixExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("(")
+	out.WriteString(ie.Left.String())
+	out.WriteString(" " + ie.Operator + " ")
+	out.WriteString(ie.Right.String())
+	out.WriteString(")")
+
+	return out.String()
+}
+
 // Program serves as the root node of every AST a parser produces.
 type Program struct {
 	Statements []Statement // Statements are just a slice of AST nodes

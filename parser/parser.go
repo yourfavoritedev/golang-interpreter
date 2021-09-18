@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/yourfavoritedev/golang-interpreter/ast"
 	"github.com/yourfavoritedev/golang-interpreter/lexer"
@@ -20,6 +21,18 @@ const (
 	PREFIX      // -X or !X
 	CALL        // myFunction(X)
 )
+
+// a map of the token infix operators and their precedences
+var precedences = map[token.TokenType]int{
+	token.EQ:       EQUALS,
+	token.NOT_EQ:   EQUALS,
+	token.LT:       LESSGREATER,
+	token.GT:       LESSGREATER,
+	token.PLUS:     SUM,
+	token.MINUS:    SUM,
+	token.SLASH:    PRODUCT,
+	token.ASTERISK: PRODUCT,
+}
 
 // Parser holds information on the lexer that is producing tokens,
 // the current token being parsed (curToken), the next token (peekToken),
@@ -56,10 +69,23 @@ func New(l *lexer.Lexer) *Parser {
 
 	// initialize prefixParseFns map on the parser
 	p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
-	// register token.IDENT with the parseIdentifier function to the map.
-	// Now whenever we encounter a token of type token.IDENT it will call
-	// the parseIdentifier parsing function
+	// register token types with their designated parsing function to the maps.
+	// now whenever we encounter that token.Type as part of an expression (foobar in let x = foobar;),
+	// we can call its parsing function
 	p.registerPrefix(token.IDENT, p.parseIdentifier)
+	p.registerPrefix(token.INT, p.parseIntegerLiteral)
+	p.registerPrefix(token.BANG, p.parsePrefixExpression)
+	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
+	// register infixParseFns as well
+	p.infixParseFns = make(map[token.TokenType]infixParseFn)
+	p.registerInfix(token.PLUS, p.parseInfixExpression)
+	p.registerInfix(token.MINUS, p.parseInfixExpression)
+	p.registerInfix(token.SLASH, p.parseInfixExpression)
+	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
+	p.registerInfix(token.EQ, p.parseInfixExpression)
+	p.registerInfix(token.NOT_EQ, p.parseInfixExpression)
+	p.registerInfix(token.LT, p.parseInfixExpression)
+	p.registerInfix(token.GT, p.parseInfixExpression)
 
 	return p
 }
@@ -155,12 +181,17 @@ func (p *Parser) expectPeek(t token.TokenType) bool {
 }
 
 // parseExpressionStatement constructs a Statement with the attributes of an ExpressionStatement
+// Depending on the current token type, it will use a designated parsing function to construct the Expression
+// The Expression is then set on the ExpressionStatement
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
+	defer untrace(trace("parseExpressionStatement"))
+
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
+	// parseExpression will determine what parsing function to use
 	stmt.Expression = p.parseExpression(LOWEST)
 
 	// advance tokens if peekToken is a semicolon.
-	// we can assume everything before the semicolon has been examined (5;),
+	// we can assume everything before the semicolon has been examined (foobar;),
 	// semicolons are optional and not required by expression statements
 	if p.peekTokenIs(token.SEMICOLON) {
 		p.nextToken()
@@ -169,17 +200,50 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 	return stmt
 }
 
+// noPrefixParseFnError appends a new error to the parser's errors
+// when the parser encounters a token in the expresson
+// that does not have a prefix parse function
+func (p *Parser) noPrefixParseFnError(t token.TokenType) {
+	msg := fmt.Sprintf("no prefix parse function for %s found", t)
+	p.errors = append(p.errors, msg)
+}
+
 // parseExpression checks whether a parsing function is
 // mapped to the current token. If one exists,
-// tt calls the parsing function (func () ast.Expression) and returns the Expression
+// it calls the parsing function (func () ast.Expression) and returns the Expression
 func (p *Parser) parseExpression(precedence int) ast.Expression {
+	defer untrace(trace("parseExpression"))
 	// check whether a parsing function exists for this token type
 	prefix := p.prefixParseFns[p.curToken.Type]
+
 	if prefix == nil {
+		p.noPrefixParseFnError(p.curToken.Type)
 		return nil
 	}
 	// Call parsing function for this token
 	leftExp := prefix()
+	// if the next token is not a SEMICOLON, we can assume that
+	// there is more to parse in the expression. The next token's precedence
+	// must be higher than the previous token's, this allows us to construct higher
+	// precedent expressions first, working our way from highest inner expressions to lowest
+	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() {
+		// identify if there is an infix parsing function for the next token
+		infix := p.infixParseFns[p.peekToken.Type]
+		if infix == nil {
+			return leftExp
+		}
+
+		// advance the token to the next operator (left-binding-power)
+		p.nextToken()
+
+		// we called this infix but its really just parseInfixExpression
+		// this takes the currently parsed expression and recursively builds the
+		// infix expressions by highest precedence first and working our way out of them
+		// until we complete the entire expression statement
+		// (parseInfixExpression calls parseExpression)
+		leftExp = infix(leftExp)
+	}
+
 	return leftExp
 }
 
@@ -221,4 +285,84 @@ func (p *Parser) registerPrefix(tokenType token.TokenType, fn prefixParseFn) {
 // registerInfix assigns a key-value pair to the parser's infixParseFns map
 func (p *Parser) registerInfix(tokenType token.TokenType, fn infixParseFn) {
 	p.infixParseFns[tokenType] = fn
+}
+
+// parseIntegerLiteral will construct an IntegerLiteral.
+// It uses the current token and converts its literal value into an integer.
+// The IntegerLiteral implements the Expression interface.
+func (p *Parser) parseIntegerLiteral() ast.Expression {
+	defer untrace(trace("parseIntegerLiteral"))
+	lit := &ast.IntegerLiteral{Token: p.curToken}
+	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
+	if err != nil {
+		msg := fmt.Sprintf("could not parse %q a integer", p.curToken.Literal)
+		p.errors = append(p.errors, msg)
+		return nil
+	}
+
+	lit.Value = value
+
+	return lit
+}
+
+// parsePrefixExpression constructs an AST node as a PrefixExpression.
+// It uses the current token and token literal to construct the PrefixExpression,
+// { Token: { Type: Token.BANG, Literal: "!" }}
+func (p *Parser) parsePrefixExpression() ast.Expression {
+	defer untrace(trace("parsePrefixExpression"))
+	expression := &ast.PrefixExpression{
+		Token:    p.curToken,
+		Operator: p.curToken.Literal,
+	}
+
+	// initially the current token is the prefix operator (token.BANG or token.MINUS),
+	// we must advance the tokens to be ready to consume the remaining part (Right value) of the prefix expression (5 of -5)
+	p.nextToken()
+
+	// call parseExpression again to consume the Right Value of the prefix expression
+	expression.Right = p.parseExpression(PREFIX)
+
+	return expression
+}
+
+// peekPrecedence finds the precedence of the peekToken and returns it
+// otherwise return the LOWEST precedence
+func (p *Parser) peekPrecedence() int {
+	if p, ok := precedences[p.peekToken.Type]; ok {
+		return p
+	}
+
+	return LOWEST
+}
+
+// curPrecedence finds the precedence of the curToken and returns it
+// otherwise return the LOWEST precedence
+func (p *Parser) curPrecedence() int {
+	if p, ok := precedences[p.curToken.Type]; ok {
+		return p
+	}
+
+	return LOWEST
+}
+
+// parsePrefixExpression constructs an AST node as an InfixExpression.
+// It uses the current token, "Left" value and token literal to construct the PrefixExpression,
+// { Token: { Type: Token.PLUS, Literal: "+" }, Operator: "+", Left: 5}
+func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
+	defer untrace(trace("parseInfixExpression"))
+	// can assume when this is called, we are already on the infix operator token
+	expression := &ast.InfixExpression{
+		Token:    p.curToken,
+		Operator: p.curToken.Literal,
+		Left:     left,
+	}
+
+	// get precedence of current operator
+	precedence := p.curPrecedence()
+	// advance token past operator to the next expression
+	p.nextToken()
+	// set Right part of Expression
+	expression.Right = p.parseExpression(precedence)
+
+	return expression
 }

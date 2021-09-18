@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/yourfavoritedev/golang-interpreter/ast"
@@ -146,5 +147,273 @@ func TestIdentifierExpression(t *testing.T) {
 	// validate the identifiers token literal
 	if ident.TokenLiteral() != "foobar" {
 		t.Errorf("ident.TokenLiteral() not %s. got=%s", "foobar", ident.TokenLiteral())
+	}
+}
+
+func TestIntegerLiteralExpression(t *testing.T) {
+	input := "5;"
+	l := lexer.New(input)
+	p := New(l)
+	program := p.ParseProgram()
+	checkParserErrors(t, p)
+
+	if len(program.Statements) != 1 {
+		t.Fatalf("program has not enough statements. got=%d", len(program.Statements))
+	}
+
+	stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+	if !ok {
+		t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T", program.Statements[0])
+	}
+
+	literal, ok := stmt.Expression.(*ast.IntegerLiteral)
+	if !ok {
+		t.Fatalf("exp not ast.IntegerLiteral. got=%T", stmt.Expression)
+	}
+
+	if literal.Value != 5 {
+		t.Errorf("literal.Value not %d. got=%d", 5, literal.Value)
+	}
+
+	if literal.TokenLiteral() != "5" {
+		t.Errorf("literal.TokenLiteral not %s. got=%s", "5", literal.TokenLiteral())
+	}
+}
+
+func TestParsingIntegerPrefixExpressions(t *testing.T) {
+	prefixTests := []struct {
+		input        string
+		operator     string
+		integerValue int64
+	}{
+		{"!5", "!", 5},
+		{"-15", "-", 15},
+	}
+
+	for _, tt := range prefixTests {
+		l := lexer.New(tt.input)
+		p := New(l)
+		program := p.ParseProgram()
+		checkParserErrors(t, p)
+
+		// validate the number of statements in each test
+		if len(program.Statements) != 1 {
+			t.Fatalf("program.Statements does not contain %d statements. got=%d\n",
+				1, len(program.Statements))
+		}
+
+		// validate that the statement is an ExpressionStatement
+		stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+		if !ok {
+			t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
+				program.Statements[0])
+		}
+
+		// validate that the statement (ExpressionStatement) is a PrefixExpression
+		exp, ok := stmt.Expression.(*ast.PrefixExpression)
+		if !ok {
+			t.Fatalf("stmt is not ast.PrefixExpression. got=%T", stmt.Expression)
+		}
+
+		// validate matching operator on expression (PrefixExpression) and test
+		if exp.Operator != tt.operator {
+			t.Fatalf("exp.Operator is not '%s'. got=%s",
+				tt.operator, exp.Operator)
+		}
+
+		// validate that the "Right" value of the PrefixExpression matches the test
+		if !testIntegerLiteral(t, exp.Right, tt.integerValue) {
+			return
+		}
+	}
+}
+
+func testIntegerLiteral(t *testing.T, il ast.Expression, value int64) bool {
+	// validate that il is an IntegerLiteral
+	integ, ok := il.(*ast.IntegerLiteral)
+	if !ok {
+		t.Errorf("il not *ast.IntegerLiteral. got=%T", il)
+		return false
+	}
+
+	// validate that the IntegerLiteral's value matches the expected value
+	if integ.Value != value {
+		t.Errorf("integ.Value not %d. got=%d", value, integ.Value)
+		return false
+	}
+
+	// validate that the tokenLiteral string matches the value as a string
+	if integ.TokenLiteral() != fmt.Sprintf("%d", value) {
+		t.Errorf("integ.TokenLiteral not %d, got=%s", value, integ.TokenLiteral())
+		return false
+	}
+
+	return true
+}
+
+func TestParsingInfixExpressions(t *testing.T) {
+	infixTests := []struct {
+		input      string
+		leftValue  int64
+		operator   string
+		rightValue int64
+	}{
+		{"5 + 5", 5, "+", 5},
+		{"5 - 5", 5, "-", 5},
+		{"5 * 5", 5, "*", 5},
+		{"5 / 5", 5, "/", 5},
+		{"5 > 5", 5, ">", 5},
+		{"5 < 5", 5, "<", 5},
+		{"5 == 5", 5, "==", 5},
+		{"5 != 5", 5, "!=", 5},
+	}
+
+	for _, tt := range infixTests {
+		l := lexer.New(tt.input)
+		p := New(l)
+		program := p.ParseProgram()
+		checkParserErrors(t, p)
+
+		if len(program.Statements) != 1 {
+			t.Fatalf("program.Statements does not contain %d statements. got=%d\n",
+				1, len(program.Statements))
+		}
+
+		stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+		if !ok {
+			t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
+				program.Statements[0])
+		}
+
+		exp, ok := stmt.Expression.(*ast.InfixExpression)
+		if !ok {
+			t.Fatalf("exp is not ast.InfixExpression. got=%T", stmt.Expression)
+		}
+
+		if !testIntegerLiteral(t, exp.Left, tt.leftValue) {
+			return
+		}
+
+		if exp.Operator != tt.operator {
+			t.Fatalf("exp.Operator is not %s. got=%s", tt.operator, exp.Operator)
+		}
+
+		if !testIntegerLiteral(t, exp.Right, tt.rightValue) {
+			return
+		}
+	}
+}
+
+func TestOperatorPrecedenceParsing(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		// this test is a good example of how to demonstrate right vs left binding power
+		// The right binding power refers to the precedence called with parseExpression(precedence)
+		// It is the strength of the current operator and its potential to suck in the expression to its right
+		// The left binding power refers to the peekPrecedence() called when comparing the current and next operator
+		// It is the strength of the next operator and its potential to suck in the expression to its left
+
+		/**
+		On the first invocation, parseExpression runs with a precedence of (LOWEST).
+		It finds a prefix expression for the current token (1) and runs parseIntegerLiteral returning 1.
+		We then compare our current precedence (LOWEST) against the peekPrecedence(), the next operator, + (4).
+		Already we see the left binding power of + is stronger.
+		Since the conditions for the loop pass, we advance the token to the next operator, +.
+		Then call parseInfixExpression() for the 1st time, it sucks in what we've already parsed, meaning
+		the left-binding power, +, consumes the expression to its left, 1.
+		It uses 1 as the Left node of the expression. It advances the token to the next integer (2), then it
+		calls parseExpression using the precedence of our current operator, + (4). What was previously the
+		left-binding-power in peekPrecedence() is now the right-binding-power for parseExpression(precedence)!
+
+		In this inner parseExpression, it finds a prefix expression for the current token (2),
+		and runs parseIntegerLiteral, returning the expression 2.
+		At this point, parseExpression was called with a precedence of 4 (+).
+		When we run peekPrecdence(), we identify that the precedence of the next operator is 6 (*).
+		The "left-binding-power" of * is stronger than + so it sucks in what we parsed so far in this
+		inner instance of parseExpression, the expression to the left of *, 2.
+		The loop enters and calls parseInfixExpression, using 2 as the Left Expression to construct
+		this new inner-infix expression with the * operator. Repeating the same steps,
+		the inner parseInfixExpression returns (2 * 5), which gets returned by the inner parseExpression.
+		Now back in the 1st invocation of parseInfixExpression we formulate the final expression using the
+		Left 1 and the value constructed by the inner parseExpression, Right (2 * 5). Getting (1 + (2 * 5)).
+		*/
+		{
+			"1 + 2 * 5",
+			"(1 + (2 * 5))",
+		},
+		{
+			"-1 * 2 + 3",
+			"(((-1) * 2) + 3)",
+		},
+		{
+			"1 + 2 + 3",
+			"((1 + 2) + 3)",
+		},
+		{
+			"-1 + 2",
+			"((-1) + 2)",
+		},
+		{
+			"-a * b",
+			"((-a) * b)",
+		},
+		{
+			"!-a",
+			"(!(-a))",
+		},
+		{
+			"a + b + c",
+			"((a + b) + c)",
+		},
+		{
+			"a + b - c",
+			"((a + b) - c)",
+		},
+		{
+			"a * b * c",
+			"((a * b) * c)",
+		},
+		{
+			"a * b / c",
+			"((a * b) / c)",
+		},
+		{
+			"a + b / c",
+			"(a + (b / c))",
+		},
+		{
+			"a + b * c + d / e - f",
+			"(((a + (b * c)) + (d / e)) - f)",
+		},
+		{
+			"3 + 4; -5 * 5",
+			"(3 + 4)((-5) * 5)",
+		},
+		{
+			"5 > 4 == 3 < 4",
+			"((5 > 4) == (3 < 4))",
+		},
+		{
+			"5 < 4 != 3 > 4",
+			"((5 < 4) != (3 > 4))",
+		},
+		{
+			"3 + 4 * 5 == 3 * 1 + 4 * 5",
+			"((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+		},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.input)
+		p := New(l)
+		program := p.ParseProgram()
+		checkParserErrors(t, p)
+
+		actual := program.String()
+		if actual != tt.expected {
+			t.Errorf("expected=%q, got=%q", tt.expected, actual)
+		}
 	}
 }
