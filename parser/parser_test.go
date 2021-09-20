@@ -309,13 +309,13 @@ func TestOperatorPrecedenceParsing(t *testing.T) {
 		input    string
 		expected string
 	}{
-		// this test is a good example of how to demonstrate right vs left binding power
-		// The right-binding power refers to the precedence called with parseExpression(precedence)
-		// It is the strength of the current operator and its potential to suck in the expression to its right
-		// The left-binding power refers to the peekPrecedence() called when comparing the current and next operator
-		// It is the strength of the next operator and its potential to suck in the expression to its left
-
 		/**
+		This is a good example of how to demonstrate right vs left binding power
+		The right-binding power refers to the precedence called with parseExpression(precedence)
+		It is the strength of the current operator and its potential to suck in the expression to its right
+		The left-binding power refers to the peekPrecedence() called when comparing the current and next operator
+		It is the strength of the next operator and its potential to suck in the expression to its left
+
 		On the first invocation, parseExpression(precedence) runs with a precedence of (LOWEST).
 		It finds a prefix expression for the current token (1) and runs parseIntegerLiteral returning 1.
 		We then compare our current precedence (LOWEST) against the peekPrecedence(), the next operator, + (4).
@@ -323,8 +323,9 @@ func TestOperatorPrecedenceParsing(t *testing.T) {
 		Since the conditions for the loop pass, we advance the token to the next operator, +.
 		Then call parseInfixExpression(left) for the 1st time, it sucks in what we've already parsed, meaning
 		the left-binding power (+) consumes the expression to its left, 1.
-		It uses 1 as the Left node of the infix expression. It advances the token to the next integer (2),
-		then it calls parseExpression(precedence) using the precedence of our current operator, + (4).
+		It uses 1 as the Left node of the infix expression. It grabs the current precedence (+),
+		advances the token to the next integer (2), then it calls parseExpression(precedence) using
+		the precedence of our current operator, + (4).
 		What was previously the left-binding-power in peekPrecedence() is now the right-binding-power
 		for parseExpression(precedence)!
 		In this inner parseExpression call, it finds a prefix expression for the current token (2),
@@ -333,10 +334,10 @@ func TestOperatorPrecedenceParsing(t *testing.T) {
 		When we run peekPrecedence(), we identify that the precedence of the next operator is 6 (*).
 		The left-binding-power of * is stronger than + so it sucks in what we parsed so far in this
 		inner instance of parseExpression, the expression to the left of *, 2.
-		The loop enters, the token is advanced to *, calls parseInfixExpression(left), using 2 as the
-		Left Expression to construct this new inner-infix expression with the * operator. Like before,
+		The loop enters, the token is advanced to * and calls parseInfixExpression(left).
+		This inner parseInfixExpression sets 2 as its Left Expression. Like before,
 		it grabs the current precedence, *, advances the token to the next integer (5), then calls
-		parseExpression(precdence) with the current precedence (*).
+		parseExpression(precedence) with the current precedence (*).
 		It finds a prefix expression for the current token (5), parses it, but we've now reached the EOF.
 		The inner parseInfixExpression returns (2 * 5), which gets returned by the inner parseExpression.
 		Now back in the 1st invocation of parseInfixExpression we formulate the final expression using the
