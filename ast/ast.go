@@ -210,6 +210,20 @@ func (ie *InfixExpression) String() string {
 	return out.String()
 }
 
+type Boolean struct {
+	Token token.Token
+	Value bool
+}
+
+// expressionNode is implemented to allow Boolean to be served as an Expression
+func (b *Boolean) expressionNode() {}
+
+// TokenLiteral returns the literal value (Token.Literal) for the the Boolean
+func (b *Boolean) TokenLiteral() string { return b.Token.Literal }
+
+// String returns the literal value (Token.Literal) for the the Boolean
+func (b *Boolean) String() string { return b.Token.Literal }
+
 // Program serves as the root node of every AST a parser produces.
 type Program struct {
 	Statements []Statement // Statements are just a slice of AST nodes
