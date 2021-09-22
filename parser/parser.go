@@ -89,6 +89,8 @@ func New(l *lexer.Lexer) *Parser {
 	// register boolean parsing functions
 	p.registerPrefix(token.TRUE, p.parseBoolean)
 	p.registerPrefix(token.FALSE, p.parseBoolean)
+	// register grouped parsing function
+	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
 
 	return p
 }
@@ -373,4 +375,34 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 // parseBoolean uses the parser's current token to construct a Boolean expression
 func (p *Parser) parseBoolean() ast.Expression {
 	return &ast.Boolean{Token: p.curToken, Value: p.curTokenIs(token.TRUE)}
+}
+
+// parseGroupedExpression constructs a Grouped Expression by
+// advancing the current token "(" and calling parseExpression to construct
+// the expression. It expects the parser to have parsed an expression up until the ")" token
+// p.peekToken should be equal to token.RPAREN.
+func (p *Parser) parseGroupedExpression() ast.Expression {
+	defer untrace(trace("parseGroupedExpression"))
+	p.nextToken()
+
+	// generally speaking we can expect grouped expressions to involve an infix operation
+	// if the grouped expression is (5 + 6), when we call parseExpression, we can expect that 5 is parsed,
+	// then we will compare (LOWEST) vs (+), in which the left-binding power (+) is stronger.
+	// parseExpression advances the token to (+) then calls parseInfixExpression(5)
+	// it sets the left-node (5), grabs the operator (+), advances the token to (6),
+	// and calls parseExpression(+). It parses the current token (6), then tries to compares the precedences,
+	// the current precedence (+) is stronger than the next precedence (LOWEST) of the peekToken ")", so no loop.
+	// The inner parseExpression returns 6, then using that, parseInfixExpression returns (5 + 6), and
+	// that is returned by the main parseExpression call here.
+	// With the expression now parsed, the curToken is still at 6 and the peekToken is )
+	exp := p.parseExpression(LOWEST)
+
+	// expectPeek will advance token to ")" after verifying it is the peekToken
+	// the actual ")" token is never actually consumed in the expression during parsing!
+	// We dont want to add an additional ")" to the end of the expression which already has ")".
+	if !p.expectPeek(token.RPAREN) {
+		return nil
+	}
+
+	return exp
 }
