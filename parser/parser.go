@@ -386,9 +386,10 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 
 	exp := p.parseExpression(LOWEST)
 
-	// expectPeek will advance token to ")" after verifying it is the peekToken
-	// the actual ")" token is never actually consumed in the expression during parsing!
-	// We dont want to add an additional ")" to the end of the expression which already has ")".
+	// We dont want to add an additional ")" to the end of an expression which already has ")".
+	// Therefore, expectPeek will advance the token to ")" after verifying it is the peekToken.
+	// The actual ")" token is never actually consumed in the expression during parsing,
+	// which will be evident as we traverse through parseExpression!
 	if !p.expectPeek(token.RPAREN) {
 		return nil
 	}
