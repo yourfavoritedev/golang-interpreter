@@ -317,6 +317,41 @@ func (fl *FunctionLiteral) String() string {
 	return out.String()
 }
 
+// CallExpression consist of an expression that results in a function when evaluated
+// and a list of expressions that are the arguments of this function call
+type CallExpression struct {
+	Token     token.Token  // The "(" token
+	Function  Expression   // Identifier of Function Literal
+	Arguments []Expression // The list of expressions that are arguments to the function call
+}
+
+// expressionNode is implemented to allow CallExpression to be served as an Expression
+func (ce *CallExpression) expressionNode() {}
+
+// TokenLiteral returns the literal value (Token.Literal) for the "(" token
+func (ce *CallExpression) TokenLiteral() string { return ce.Token.Literal }
+
+// String builds the entire CallExpression as a string,
+// first by stringifying all its arguments, then building the string
+// with the CallExpressions expected components
+func (ce *CallExpression) String() string {
+	var out bytes.Buffer
+
+	args := []string{}
+	// stringify all arguments
+	for _, a := range ce.Arguments {
+		args = append(args, a.String())
+	}
+
+	// build string
+	out.WriteString(ce.Function.String())
+	out.WriteString("(")
+	out.WriteString(strings.Join(args, ", "))
+	out.WriteString(")")
+
+	return out.String()
+}
+
 // Program serves as the root node of every AST a parser produces.
 type Program struct {
 	Statements []Statement // Statements are just a slice of AST nodes

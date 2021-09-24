@@ -32,6 +32,7 @@ var precedences = map[token.TokenType]int{
 	token.MINUS:    SUM,
 	token.SLASH:    PRODUCT,
 	token.ASTERISK: PRODUCT,
+	token.LPAREN:   CALL,
 }
 
 // Parser holds information on the lexer that is producing tokens,
@@ -95,6 +96,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.IF, p.parseIfExpression)
 	// register function-literal parsing function
 	p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral)
+	// register infixParseFn to parse call-expressions
+	p.registerInfix(token.LPAREN, p.parseCallExpression)
 
 	return p
 }
@@ -142,8 +145,16 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 		return nil
 	}
 
-	// TODO: We're skipping the expression until we encounter a semicolon
-	for !p.curTokenIs(token.SEMICOLON) {
+	// advance past "="
+	p.nextToken()
+
+	// construct expression for let statement
+	stmt.Value = p.parseExpression(LOWEST)
+
+	// advance tokens if peekToken is a semicolon.
+	// we can assume everything before the semicolon has been examined (foobar;),
+	// semicolons are optional and not required by expression statements
+	if p.peekTokenIs(token.SEMICOLON) {
 		p.nextToken()
 	}
 
@@ -157,8 +168,13 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	// advance the parser to start examining the proceeding expression
 	p.nextToken()
 
-	// TODO: We're skipping the expression until we encounter a semicolon
-	for !p.curTokenIs(token.SEMICOLON) {
+	// construct expression for return statement
+	stmt.ReturnValue = p.parseExpression(LOWEST)
+
+	// advance tokens if peekToken is a semicolon.
+	// we can assume everything before the semicolon has been examined (foobar;),
+	// semicolons are optional and not required by expression statements
+	if p.peekTokenIs(token.SEMICOLON) {
 		p.nextToken()
 	}
 
@@ -233,9 +249,8 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	// Call parsing function for this token
 	leftExp := prefix()
 	// if the next token is not a SEMICOLON, we can assume that
-	// there is more to parse in the expression. The next token's precedence
-	// must be higher than the previous token's, this allows us to construct higher
-	// precedent expressions first, working our way from highest inner expressions to lowest
+	// there is more to parse in the expression. If the current precedence
+	// is lower than the next precedence, then enter the loop.
 	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() {
 		// identify if there is an infix parsing function for the next token
 		infix := p.infixParseFns[p.peekToken.Type]
@@ -477,6 +492,7 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 // by verifying that all components of the function-literal are in their
 // expected position
 func (p *Parser) parseFunctionLiteral() ast.Expression {
+	defer untrace(trace("parseFunctionLiteral"))
 	lit := &ast.FunctionLiteral{Token: p.curToken}
 
 	// current token should be "fn", verify next token is "("
@@ -502,6 +518,7 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 // parseFunctionParameters constructs the function-literal's
 // parameters as identifiers
 func (p *Parser) parseFunctionParameters() []*ast.Identifier {
+	defer untrace(trace("parseFunctionParameters"))
 	identifiers := []*ast.Identifier{}
 
 	// early exit if the next token is ")",
@@ -536,4 +553,51 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 	}
 
 	return identifiers
+}
+
+// parseCallExpression constructs a CallExpression, it expects
+// the current token to be "(" amd expects function to be passed as an argument
+// (can be Identifier or function-literal)
+func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
+	defer untrace(trace("parseCallExpression"))
+	exp := &ast.CallExpression{Token: p.curToken, Function: function}
+	// construct argument expressions
+	exp.Arguments = p.parseCallArguments()
+	return exp
+}
+
+// parseCallArguments constructs the functions's
+// parameters as expressions. The function can be either an identifier or function-literal
+func (p *Parser) parseCallArguments() []ast.Expression {
+	defer untrace(trace("parseCallArguments"))
+	args := []ast.Expression{}
+
+	// early exit if the next token is ")",
+	// advance to ")" to move past parameters
+	// this would mean the function has no parameters, fn()
+	if p.peekTokenIs(token.RPAREN) {
+		p.nextToken()
+		return args
+	}
+
+	// advance past current token "("
+	p.nextToken()
+	// parse the first expression argument
+	args = append(args, p.parseExpression(LOWEST))
+
+	for p.peekTokenIs(token.COMMA) {
+		// advance current token to ","
+		p.nextToken()
+		// advance current token to next argument
+		p.nextToken()
+		args = append(args, p.parseExpression(LOWEST))
+	}
+
+	// if the next token is not ")" after parsing all parameters,
+	// advance to that next token, parser has likely encountered an error
+	if !p.expectPeek(token.RPAREN) {
+		return nil
+	}
+
+	return args
 }
