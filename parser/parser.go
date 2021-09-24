@@ -93,6 +93,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
 	// register ifExpression parsing function
 	p.registerPrefix(token.IF, p.parseIfExpression)
+	// register function-literal parsing function
+	p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral)
 
 	return p
 }
@@ -448,9 +450,9 @@ func (p *Parser) parseIfExpression() ast.Expression {
 	return expression
 }
 
-// parseBlockStatement calls parseStatement until it encounters either a },
-// which signifies the end of the block statement or a token.EOF, which
-// tells us there are no more tokens left to parse
+// parseBlockStatement constructs a BlockStatement. It calls parseStatement
+// until it encounters either a }, which signifies the end of the block statement
+// or a token.EOF, which tells us there are no more tokens left to parse
 func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	defer untrace(trace("parseBlockStatement"))
 	block := &ast.BlockStatement{Token: p.curToken}
@@ -469,4 +471,69 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	}
 
 	return block
+}
+
+// parseFunctionLiteral constructs a FunctionLiteral expression
+// by verifying that all components of the function-literal are in their
+// expected position
+func (p *Parser) parseFunctionLiteral() ast.Expression {
+	lit := &ast.FunctionLiteral{Token: p.curToken}
+
+	// current token should be "fn", verify next token is "("
+	// then advance to that token
+	if !p.expectPeek(token.LPAREN) {
+		return nil
+	}
+
+	// parse function parameters, should leave current token as ")"
+	lit.Parameters = p.parseFunctionParameters()
+
+	// current token should be ")", verify next token is "{"
+	if !p.expectPeek(token.LBRACE) {
+		return nil
+	}
+
+	// construct Block Statement of function-literal
+	lit.Body = p.parseBlockStatement()
+
+	return lit
+}
+
+// parseFunctionParameters constructs the function-literal's
+// parameters as identifiers
+func (p *Parser) parseFunctionParameters() []*ast.Identifier {
+	identifiers := []*ast.Identifier{}
+
+	// early exit if the next token is ")",
+	// advance to ")" to move past parameters
+	// this would mean the function has no parameters, fn()
+	if p.peekTokenIs(token.RPAREN) {
+		p.nextToken()
+		return identifiers
+	}
+
+	// advance past current token "("
+	p.nextToken()
+
+	// construct first parameter as identifier
+	ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	identifiers = append(identifiers, ident)
+
+	// keep building identifiers if the next token is a ","
+	for p.peekTokenIs(token.COMMA) {
+		// advance current token to ","
+		p.nextToken()
+		// advance current token to next parameter
+		p.nextToken()
+		ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		identifiers = append(identifiers, ident)
+	}
+
+	// if the next token is not ")" after parsing all parameters,
+	// advance to that next token, parser has likely encountered an error
+	if !p.expectPeek(token.RPAREN) {
+		return nil
+	}
+
+	return identifiers
 }
