@@ -224,6 +224,63 @@ func (b *Boolean) TokenLiteral() string { return b.Token.Literal }
 // String returns the literal value (Token.Literal) for the the Boolean
 func (b *Boolean) String() string { return b.Token.Literal }
 
+// IfExpression holds the necessary information
+// to construct an if-expression
+type IfExpression struct {
+	Token       token.Token     // The 'if' token
+	Condition   Expression      // The condition to be evalated
+	Consequence *BlockStatement // The statement which is a direct result of the passing Condition
+	Alternative *BlockStatement // The alternative statement should the condition not pass
+}
+
+// expressionNode is implemented to allow IfExpression to be served as an Expression
+func (ie *IfExpression) expressionNode() {}
+
+// TokenLiteral returns the literal value (Token.Literal) for the the if token
+func (ie *IfExpression) TokenLiteral() string { return ie.Token.Literal }
+
+// String will contruct the entire IfExpression as a string
+func (ie *IfExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("if")
+	out.WriteString(ie.Condition.String())
+	out.WriteString(" ")
+	out.WriteString(ie.Consequence.String())
+
+	if ie.Alternative != nil {
+		out.WriteString("else ")
+		out.WriteString(ie.Alternative.String())
+	}
+
+	return out.String()
+}
+
+// BlockStatement holds the necessary information
+// to construct a statement(s) that exist within an IfExpression or Function Literal
+type BlockStatement struct {
+	Token      token.Token // the "{" token
+	Statements []Statement
+}
+
+// statementNode is implemented to allow BlockStatement to be served as a Statement
+func (bs *BlockStatement) statementNode() {}
+
+// TokenLiteral returns the literal value (Token.Literal) for the "{" token
+func (bs *BlockStatement) TokenLiteral() string { return bs.Token.Literal }
+
+// String will construct the entire BlockStatement as a string by
+// iterating through and stringify all its statements. The statements can
+// be any combination of LET, RETURN or expressionStatements
+func (bs *BlockStatement) String() string {
+	var out bytes.Buffer
+	for _, s := range bs.Statements {
+		out.WriteString(s.String())
+	}
+
+	return out.String()
+}
+
 // Program serves as the root node of every AST a parser produces.
 type Program struct {
 	Statements []Statement // Statements are just a slice of AST nodes
