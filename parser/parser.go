@@ -91,6 +91,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.FALSE, p.parseBoolean)
 	// register grouped parsing function
 	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
+	// register ifExpression parsing function
+	p.registerPrefix(token.IF, p.parseIfExpression)
 
 	return p
 }
@@ -104,6 +106,7 @@ func (p *Parser) parseIdentifier() ast.Expression {
 // When called, the lexer will examine the next character, produce a new token
 // and advance its position.
 func (p *Parser) nextToken() {
+	defer untrace(trace("nextToken"))
 	p.curToken = p.peekToken
 	p.peekToken = p.l.NextToken()
 }
@@ -395,4 +398,75 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 	}
 
 	return exp
+}
+
+// parseIfExpression constructs an IfExpression by verifying
+// that all the conditions to create the expression are met
+func (p *Parser) parseIfExpression() ast.Expression {
+	defer untrace(trace("parseIfExpression"))
+	// iniitalize expression with current token (if)
+	expression := &ast.IfExpression{Token: p.curToken}
+
+	// expect next token to be "(", advance to that token
+	if !p.expectPeek(token.LPAREN) {
+		return nil
+	}
+
+	// advance past the current token "(" to start constructing inner-expression
+	p.nextToken()
+	// construct expression, parseExpression will parse the token up until ")"
+	expression.Condition = p.parseExpression(LOWEST)
+
+	// expect next token to be ")", the end of the condition, advance to that token
+	if !p.expectPeek(token.RPAREN) {
+		return nil
+	}
+
+	// expect next token to be "{", the start of the block statement, advance to that token
+	if !p.expectPeek(token.LBRACE) {
+		return nil
+	}
+
+	// construct consequence block statement
+	expression.Consequence = p.parseBlockStatement()
+
+	// Consequence should be constructed and current token should now be "}"
+	// verfify next token is "ELSE"
+	if p.peekTokenIs(token.ELSE) {
+		// advance to "ELSE" token
+		p.nextToken()
+
+		// verify next token is "{" and advance to that token
+		if !p.expectPeek(token.LBRACE) {
+			return nil
+		}
+
+		// construct alternative block statement
+		expression.Alternative = p.parseBlockStatement()
+	}
+
+	return expression
+}
+
+// parseBlockStatement calls parseStatement until it encounters either a },
+// which signifies the end of the block statement or a token.EOF, which
+// tells us there are no more tokens left to parse
+func (p *Parser) parseBlockStatement() *ast.BlockStatement {
+	defer untrace(trace("parseBlockStatement"))
+	block := &ast.BlockStatement{Token: p.curToken}
+	block.Statements = []ast.Statement{}
+
+	// advance token past "{"
+	p.nextToken()
+
+	// build statements until parser encounters "}" token
+	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
+		stmt := p.parseStatement()
+		if stmt != nil {
+			block.Statements = append(block.Statements, stmt)
+		}
+		p.nextToken()
+	}
+
+	return block
 }
