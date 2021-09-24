@@ -2,6 +2,7 @@ package ast
 
 import (
 	"bytes"
+	"strings"
 
 	"github.com/yourfavoritedev/golang-interpreter/token"
 )
@@ -229,8 +230,8 @@ func (b *Boolean) String() string { return b.Token.Literal }
 type IfExpression struct {
 	Token       token.Token     // The 'if' token
 	Condition   Expression      // The condition to be evalated
-	Consequence *BlockStatement // The statement which is a direct result of the passing Condition
-	Alternative *BlockStatement // The alternative statement should the condition not pass
+	Consequence *BlockStatement // The collection of statements which is a direct result of the passing Condition
+	Alternative *BlockStatement // The alternative statements should the condition not pass
 }
 
 // expressionNode is implemented to allow IfExpression to be served as an Expression
@@ -270,13 +271,48 @@ func (bs *BlockStatement) statementNode() {}
 func (bs *BlockStatement) TokenLiteral() string { return bs.Token.Literal }
 
 // String will construct the entire BlockStatement as a string by
-// iterating through and stringify all its statements. The statements can
-// be any combination of LET, RETURN or expressionStatements
+// iterating through and stringifying all its statements. The statements can
+// be any combination of LET, RETURN or ExpressionStatements
 func (bs *BlockStatement) String() string {
 	var out bytes.Buffer
 	for _, s := range bs.Statements {
 		out.WriteString(s.String())
 	}
+
+	return out.String()
+}
+
+// FunctionLiteral holds the necessary information to
+// construct a function-literal expression
+type FunctionLiteral struct {
+	Token      token.Token     // The 'fn' token
+	Parameters []*Identifier   // The parameters of the function
+	Body       *BlockStatement // The collection of statements in the body of the function
+}
+
+// expressionNode is implemented to allow FunctionLiteral to be served as an Expression
+func (fl *FunctionLiteral) expressionNode() {}
+
+// TokenLiteral returns the literal value (Token.Literal) for the "fn" token
+func (fl *FunctionLiteral) TokenLiteral() string { return fl.Token.Literal }
+
+// String builds the entire FunctionLiteral as a string,
+// first by stringifying all its params, then building the string with
+// the FunctionLiterals expected components
+func (fl *FunctionLiteral) String() string {
+	var out bytes.Buffer
+
+	params := []string{}
+
+	for _, p := range fl.Parameters {
+		params = append(params, p.String())
+	}
+
+	out.WriteString(fl.TokenLiteral())
+	out.WriteString("(")
+	out.WriteString(strings.Join(params, ", "))
+	out.WriteString(") ")
+	out.WriteString(fl.Body.String())
 
 	return out.String()
 }
