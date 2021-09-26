@@ -6,10 +6,11 @@ import (
 	"io"
 
 	"github.com/yourfavoritedev/golang-interpreter/lexer"
-	"github.com/yourfavoritedev/golang-interpreter/token"
+	"github.com/yourfavoritedev/golang-interpreter/parser"
 )
 
 const PROMPT = ">> "
+const MONKEY_FACE = "@(^_^)@\n"
 
 func Start(in io.Reader, out io.Writer) {
 	// scanner helps intake standard input (from user) as a data stream
@@ -31,11 +32,28 @@ func Start(in io.Reader, out io.Writer) {
 		line := scanner.Text()
 		// create mew lexer using input
 		l := lexer.New(line)
+		// create new parser using lexer
+		p := parser.New(l)
 
-		// print all tokens from the lexer until we reach the end of the input (EOF)
-		for tok := l.NextToken(); tok.Type != token.EOF; tok = l.NextToken() {
-			// print to standard output (typically the terminal viewed by the user)
-			fmt.Fprintf(out, "%+v\n", tok)
+		// initialize program
+		program := p.ParseProgram()
+		if len(p.Errors()) != 0 {
+			printParserErrors(out, p.Errors())
+			continue
 		}
+
+		// write program string to output
+		io.WriteString(out, program.String())
+		io.WriteString(out, "\n")
+	}
+}
+
+// printParserErrors writes the parser errors to the output
+func printParserErrors(out io.Writer, errors []string) {
+	io.WriteString(out, MONKEY_FACE)
+	io.WriteString(out, "Woops! We ran into some monkey business here!\n")
+	io.WriteString(out, "parser errors:\n")
+	for _, msg := range errors {
+		io.WriteString(out, "\t"+msg+"\n")
 	}
 }
