@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/yourfavoritedev/golang-interpreter/evaluator"
 	"github.com/yourfavoritedev/golang-interpreter/lexer"
 	"github.com/yourfavoritedev/golang-interpreter/parser"
 )
@@ -42,9 +43,13 @@ func Start(in io.Reader, out io.Writer) {
 			continue
 		}
 
-		// write program string to output
-		io.WriteString(out, program.String())
-		io.WriteString(out, "\n")
+		// evaluate the AST
+		evaluated := evaluator.Eval(program)
+		if evaluated != nil {
+			// write program string to output
+			io.WriteString(out, evaluated.Inspect())
+			io.WriteString(out, "\n")
+		}
 	}
 }
 
