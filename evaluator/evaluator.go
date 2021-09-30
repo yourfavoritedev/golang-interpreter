@@ -1,6 +1,8 @@
 package evaluator
 
 import (
+	"fmt"
+
 	"github.com/yourfavoritedev/golang-interpreter/ast"
 	"github.com/yourfavoritedev/golang-interpreter/object"
 )
@@ -26,23 +28,46 @@ func Eval(node ast.Node) object.Object {
 	// Statements
 	case *ast.Program:
 		// evaluates all statements in the program
-		return evalStatements(node.Statements)
+		return evalProgram(node)
 	case *ast.ExpressionStatement:
 		// recursively calls itself to evaluate the entire expression statement
 		return Eval(node.Expression)
 	case *ast.BlockStatement:
 		// evaluate all statements in the BlockStatement
-		return evalStatements(node.Statements)
+		return evalBlockStatement(node)
+	case *ast.ReturnStatement:
+		// evaluate the expression associated with the return statement and then wrap the value
+		val := Eval(node.ReturnValue)
+		// if there is an error, prevent it from being passed around
+		// and bubbling up far away from their origin
+		if isError(val) {
+			return val
+		}
+		return &object.ReturnValue{Value: val}
 
 	// Expressions
 	case *ast.PrefixExpression:
 		// Evaluate its operand and then use the result with the operator
 		right := Eval(node.Right)
+		// if there is an error, prevent it from being passed around
+		// and bubbling up far away from their origin
+		if isError(right) {
+			return right
+		}
 		return evalPrefixExpression(node.Operator, right)
 	case *ast.InfixExpression:
 		// evaluate the left and right operands and then use the results with the operator
 		left := Eval(node.Left)
+		// return error if encountered when evaluating left node
+		if isError(left) {
+			return left
+		}
+
 		right := Eval(node.Right)
+		// return error if encountered when evaluating right node
+		if isError(right) {
+			return right
+		}
 		return evalInfixExpression(node.Operator, left, right)
 	case *ast.IfExpression:
 		// evaluate if expression
@@ -58,13 +83,47 @@ func Eval(node ast.Node) object.Object {
 	return nil
 }
 
-// evalStatements accepts a slice of ast.Statements
-// and evaluates them, constructing an object.Object for every
+// evalProgram accepts an ast.Program and evaluates its
+// statements, constructing an object.Object for every
 // evaluated ast.Node it encounters
-func evalStatements(statements []ast.Statement) object.Object {
+func evalProgram(program *ast.Program) object.Object {
 	var result object.Object
-	for _, stmt := range statements {
-		result = Eval(stmt)
+
+	for _, statement := range program.Statements {
+		result = Eval(statement)
+
+		switch result := result.(type) {
+		// if we encounter a ReturnValue after successfully evaluating a statement,
+		// then we should return it immediately and early-exit
+		case *object.ReturnValue:
+			return result.Value
+		// return the Error immediately
+		case *object.Error:
+			return result
+		}
+	}
+
+	return result
+}
+
+// evalBlockStatement evaluates a block statement and identifies
+// if we should immediately return the evaluated value if
+// it is of type object.RETURN_VALUE_OBJ
+func evalBlockStatement(block *ast.BlockStatement) object.Object {
+	var result object.Object
+
+	for _, statement := range block.Statements {
+		result = Eval(statement)
+
+		if result != nil {
+			rt := result.Type()
+			// should return the Object and early-exit if the statement has evalated to an object of type
+			// RETURN_VALUE_OBJ or ERROR_OBJ, these are objects that should stop the evaluation.
+			// This happens after we evaluate a return statement or encounter an error
+			if rt == object.RETURN_VALUE_OBJ || rt == object.ERROR_OBJ {
+				return result
+			}
+		}
 	}
 
 	return result
@@ -80,7 +139,7 @@ func evalPrefixExpression(operator string, right object.Object) object.Object {
 	case "-":
 		return evalMinusPrefixOperatorExpression(right)
 	default:
-		return NULL
+		return newError("unknown operator: %s%s", operator, right.Type())
 	}
 }
 
@@ -104,8 +163,14 @@ func evalInfixExpression(
 		return nativeBoolToBooleanObject(left == right)
 	case operator == "!=":
 		return nativeBoolToBooleanObject(left != right)
+	// infix expression is trying to perform an operation of mismatched types,
+	// this should return an error
+	case left.Type() != right.Type():
+		return newError("type mismatch: %s %s %s",
+			left.Type(), operator, right.Type())
 	default:
-		return NULL
+		return newError("unknown operator: %s %s %s",
+			left.Type(), operator, right.Type())
 	}
 }
 
@@ -139,7 +204,8 @@ func evalIntegerInfixExpression(
 	case "!=":
 		return nativeBoolToBooleanObject(leftValue != rightValue)
 	default:
-		return NULL
+		return newError("unknown operator: %s %s %s",
+			left.Type(), operator, right.Type())
 	}
 }
 
@@ -165,7 +231,7 @@ func evalBangOperatorExpression(right object.Object) object.Object {
 func evalMinusPrefixOperatorExpression(right object.Object) object.Object {
 	// validate that an integer is provided
 	if right.Type() != object.INTEGER_OBJ {
-		return NULL
+		return newError("unknown operator: -%s", right.Type())
 	}
 
 	value := right.(*object.Integer).Value
@@ -186,6 +252,11 @@ func nativeBoolToBooleanObject(input bool) *object.Boolean {
 func evalIfExpression(ie *ast.IfExpression) object.Object {
 	// evaluate the condition and determine whether it is truthy or falsey
 	condition := Eval(ie.Condition)
+	// if there is an error, prevent it from being passed around
+	// and bubbling up far away from its origin
+	if isError(condition) {
+		return condition
+	}
 
 	if isTruthy(condition) {
 		return Eval(ie.Consequence)
@@ -207,4 +278,19 @@ func isTruthy(obj object.Object) bool {
 	default:
 		return true
 	}
+}
+
+// newError constructs a object.Error with the given format and
+// a, which is a variadic slice of error message(s) which can be for any type
+func newError(format string, a ...interface{}) *object.Error {
+	return &object.Error{Message: fmt.Sprintf(format, a...)}
+}
+
+// isError simply validates whether the given object is
+// of type object.ERROR_OBJ
+func isError(obj object.Object) bool {
+	if obj != nil {
+		return obj.Type() == object.ERROR_OBJ
+	}
+	return false
 }
