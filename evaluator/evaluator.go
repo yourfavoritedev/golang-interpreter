@@ -89,7 +89,7 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 
 	// Identifiers
 	case *ast.Identifier:
-		// Evaluate the identifier and get back its evaluated expression if one exists
+		// Evaluate the identifier and get back the object with its evaluated value
 		return evalIdentifier(node, env)
 	}
 
@@ -308,9 +308,10 @@ func isError(obj object.Object) bool {
 	return false
 }
 
-// evalIdentifier verifies if an identifier has been previously associated in the environment.
-// If not associated, then return an error because we're trying to evaluate an identifier
-// that has not been introduced to the environment. Otherwise, return the evaluated value for the found identifier.
+// evalIdentifier verifies if an identifier has been previously
+// associated in the environment. If not associated, then return an error because
+// we're attempting to evaluate an identifier that has not been introduced to the environment.
+// Otherwise, if an identifier was found, return its mapped object.
 func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object {
 	obj, ok := env.Get(node.Value)
 	if !ok {
