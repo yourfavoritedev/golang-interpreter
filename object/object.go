@@ -83,3 +83,29 @@ func (e *Error) Type() ObjectType { return ERROR_OBJ }
 // Inspect returns the Error struct's Message as a formatted string
 // to print out the error message
 func (e *Error) Inspect() string { return "ERROR: " + e.Message }
+
+// Environment employ a hashmap to keep track of evaluated values for expressions.
+// Each value (Object) is associated with a name, typically the same name of the Identifier
+// it was original bound too.
+type Environment struct {
+	store map[string]Object
+}
+
+// Get uses the given name to find an associated Object in the Environment store
+func (e *Environment) Get(name string) (Object, bool) {
+	obj, ok := e.store[name]
+	return obj, ok
+}
+
+// Set will use the given name to update the associated entry in the
+// Environment store with the new value
+func (e *Environment) Set(name string, val Object) Object {
+	e.store[name] = val
+	return val
+}
+
+// NewEnvironment creates a new instance of an Environment
+func NewEnvironment() *Environment {
+	s := make(map[string]Object)
+	return &Environment{store: s}
+}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/yourfavoritedev/golang-interpreter/evaluator"
 	"github.com/yourfavoritedev/golang-interpreter/lexer"
+	"github.com/yourfavoritedev/golang-interpreter/object"
 	"github.com/yourfavoritedev/golang-interpreter/parser"
 )
 
@@ -16,6 +17,7 @@ const MONKEY_FACE = "@(^_^)@\n"
 func Start(in io.Reader, out io.Writer) {
 	// scanner helps intake standard input (from user) as a data stream
 	scanner := bufio.NewScanner(in)
+	env := object.NewEnvironment()
 
 	// keep accepting standard input until the user forcefully stops the program
 	for {
@@ -44,7 +46,7 @@ func Start(in io.Reader, out io.Writer) {
 		}
 
 		// evaluate the AST
-		evaluated := evaluator.Eval(program)
+		evaluated := evaluator.Eval(program, env)
 		if evaluated != nil {
 			// write program string to output
 			io.WriteString(out, evaluated.Inspect())
