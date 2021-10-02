@@ -91,9 +91,84 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 	case *ast.Identifier:
 		// Evaluate the identifier and get back the object with its evaluated value
 		return evalIdentifier(node, env)
+
+	// Functions
+	case *ast.FunctionLiteral:
+		// Evaluate the function literal, store its Parameters
+		// and Body nodes in the object.Function for future reference
+		// they will be evaluated during function calls
+		params := node.Parameters
+		body := node.Body
+		return &object.Function{Parameters: params, Body: body, Env: env}
+	case *ast.CallExpression:
+		// Evaluate the call expression, simply getting back the function we want to call,
+		// it can be the form of an ast.Identifier or an ast.FunctionLiteral, it still
+		// returns an object.Function
+		function := Eval(node.Function, env)
+		if isError(function) {
+			return function
+		}
+
+		// Evaluate the arguments of the function and keep track of the produced Object values.
+		// Should stop evaluating as soon as we encounter an error
+		args := evalExpressions(node.Arguments, env)
+		if len(args) == 1 && isError(args[0]) {
+			return args[0]
+		}
+
+		// call it, first by giving it a new "inner" environment and binding the function and its
+		// arguments to that environment. We can then invoke it!
+		return applyFunction(function, args)
 	}
 
 	return nil
+}
+
+// applyFunction accepts an already evaluated function and evaluated arguments,
+// and binds them to a new inner environment.
+func applyFunction(fn object.Object, args []object.Object) object.Object {
+	// assert that object is a object.Function and get access to its Body and Env
+	function, ok := fn.(*object.Function)
+	if !ok {
+		return newError("not a function: %s", fn.Type())
+	}
+
+	// bind function and arguments to a new inner environment
+	extendedEnv := extendFunctionEnv(function, args)
+	// evaluate the function body within this extended environemnt
+	evaluated := Eval(function.Body, extendedEnv)
+	// unwrap object if its a return value object
+	return unwrapReturnValue(evaluated)
+}
+
+// extendFunctionEnv creates a new inner environment for an object.Function
+// It binds the function's parameters and already evaluated arguments to
+// the new inner environment. The environment is enclosed by the initial environment (outer)
+// of which the function was defined in (Function.Env)
+func extendFunctionEnv(
+	fn *object.Function,
+	args []object.Object,
+) *object.Environment {
+	// Create inner environment, enclosed by the outer environment that defined the function
+	env := object.NewEnclosedEnvironment(fn.Env)
+
+	// set inner environment store with the function's parameters and evaluated arguments
+	for paramIdx, param := range fn.Parameters {
+		env.Set(param.Value, args[paramIdx])
+	}
+
+	return env
+}
+
+// unwrapReturnValue asserts if the evaluated object is an object.ReturnValue.
+// If it is a ReturnValue object, we need to return the unwrapped value,
+// otherwise simply return the already evaluated object.
+func unwrapReturnValue(obj object.Object) object.Object {
+	// assert that the given object is a ReturnValue, if it is return it
+	if returnValue, ok := obj.(*object.ReturnValue); ok {
+		return returnValue.Value
+	}
+	return obj
 }
 
 // evalProgram accepts an ast.Program and evaluates its
@@ -319,4 +394,24 @@ func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object
 	}
 
 	return obj
+}
+
+// evalExpressions evaluates the given list of expressions and if no error is encountered
+// then it will return the evaluated Objects in their respective argument order.
+// However, if an error was encountered, it will only return the Object.Error.
+func evalExpressions(
+	exps []ast.Expression,
+	env *object.Environment,
+) []object.Object {
+	var result []object.Object
+
+	for _, e := range exps {
+		evaluated := Eval(e, env)
+		if isError(evaluated) {
+			return []object.Object{evaluated}
+		}
+		result = append(result, evaluated)
+	}
+
+	return result
 }

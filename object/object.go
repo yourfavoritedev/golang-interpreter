@@ -1,6 +1,12 @@
 package object
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+	"strings"
+
+	"github.com/yourfavoritedev/golang-interpreter/ast"
+)
 
 const (
 	INTEGER_OBJ      = "INTEGER"
@@ -8,6 +14,7 @@ const (
 	NULL_OBJ         = "NULL"
 	RETURN_VALUE_OBJ = "RETURN_VALUE"
 	ERROR_OBJ        = "ERROR"
+	FUNCTION_OBJ     = "FUNCTION"
 )
 
 // ObjectType is the type that represents an evaluated value as a string
@@ -84,28 +91,36 @@ func (e *Error) Type() ObjectType { return ERROR_OBJ }
 // to print out the error message
 func (e *Error) Inspect() string { return "ERROR: " + e.Message }
 
-// Environment employ a hashmap to keep track of evaluated values for expressions.
-// Each value (Object) is associated with a name, typically the same name of the Identifier
-// it was original bound too.
-type Environment struct {
-	store map[string]Object
+// Function is the referenced struct for Function Literals in our object system.
+// The struct holds the function's parameters and body to be later evaluated
+// when referenced in its respective environment in a function call
+type Function struct {
+	Parameters []*ast.Identifier
+	Body       *ast.BlockStatement
+	Env        *Environment
 }
 
-// Get uses the given name to find an associated Object in the Environment store
-func (e *Environment) Get(name string) (Object, bool) {
-	obj, ok := e.store[name]
-	return obj, ok
-}
+// Type returns the ObjectType (FUNCTION_OBJ) associated with the referenced Function struct
+func (f *Function) Type() ObjectType { return FUNCTION_OBJ }
 
-// Set will use the given name to update the associated entry in the
-// Environment store with the new value
-func (e *Environment) Set(name string, val Object) Object {
-	e.store[name] = val
-	return val
-}
+// Inspect will construct the Function as a string by stringifying its components,
+// the parameters and body, and concatenating them into the expected function format.
+func (f *Function) Inspect() string {
+	var out bytes.Buffer
 
-// NewEnvironment creates a new instance of an Environment
-func NewEnvironment() *Environment {
-	s := make(map[string]Object)
-	return &Environment{store: s}
+	params := []string{}
+	// build params, convert ast.Identifiers to strings
+	for _, p := range f.Parameters {
+		params = append(params, p.String())
+	}
+
+	// construct function literal as string
+	out.WriteString("fn")
+	out.WriteString("(")
+	out.WriteString(strings.Join(params, ", "))
+	out.WriteString(") {\n")
+	out.WriteString(f.Body.String())
+	out.WriteString("\n}")
+
+	return out.String()
 }
