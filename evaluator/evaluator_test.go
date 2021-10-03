@@ -328,5 +328,4 @@ func TestClosures(t *testing.T) {
 	`
 
 	testIntegerObject(t, testEval(input), 4)
-
 }
