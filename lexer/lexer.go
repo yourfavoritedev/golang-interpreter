@@ -4,6 +4,10 @@ import (
 	"github.com/yourfavoritedev/golang-interpreter/token"
 )
 
+// Lexer converts a string input to produce tokens for the Monkey language.
+// It always keeps track of the current position, the next readable position and
+// the current character under examination. These tokens will be parsed by
+// the parser, which constructs the abstract syntax-tree (AST).
 type Lexer struct {
 	input        string
 	position     int  // current position in input (points to the current char)

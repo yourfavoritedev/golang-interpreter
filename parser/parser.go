@@ -35,7 +35,8 @@ var precedences = map[token.TokenType]int{
 	token.LPAREN:   CALL,
 }
 
-// Parser holds information on the lexer that is producing tokens,
+// Parser constructs the abstract syntax-tree for a program by analyzing the tokens
+// produced by a Lexer. It holds information on the Lexer that is producing tokens,
 // the current token being parsed (curToken), the next token (peekToken),
 // errors that were encourntered during parsing
 // and maps of its tokens with their parsing functions.
