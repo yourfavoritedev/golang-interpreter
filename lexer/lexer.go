@@ -62,6 +62,19 @@ func (l *Lexer) skipWhitespace() {
 	}
 }
 
+// readString constructs a string literal using the input between the current character '"' and the
+// closing '"' character. It advances the lexer's position until it encounters the closing '"' character or EOF.
+func (l *Lexer) readString() string {
+	position := l.position + 1
+	for {
+		l.readChar()
+		if l.ch == '"' || l.ch == 0 {
+			break
+		}
+	}
+	return l.input[position:l.position]
+}
+
 // NextToken looks at the current character under examination and returns a Token depending on which character it is.
 func (l *Lexer) NextToken() token.Token {
 	var tok token.Token
@@ -111,6 +124,9 @@ func (l *Lexer) NextToken() token.Token {
 		tok = newToken(token.LBRACE, l.ch)
 	case '}':
 		tok = newToken(token.RBRACE, l.ch)
+	case '"':
+		tok.Type = token.STRING
+		tok.Literal = l.readString()
 	case 0:
 		tok.Literal = ""
 		tok.Type = token.EOF

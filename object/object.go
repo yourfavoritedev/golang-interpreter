@@ -15,6 +15,7 @@ const (
 	RETURN_VALUE_OBJ = "RETURN_VALUE"
 	ERROR_OBJ        = "ERROR"
 	FUNCTION_OBJ     = "FUNCTION"
+	STRING_OBJ       = "STRING"
 )
 
 // ObjectType is the type that represents an evaluated value as a string
@@ -124,3 +125,15 @@ func (f *Function) Inspect() string {
 
 	return out.String()
 }
+
+// IntStringeger is the referenced struct for String Literals in our object system.
+// The struct holds the evaluated value of the String Literal.
+type String struct {
+	Value string
+}
+
+// Type returns the ObjectType (STRING_OBJ) associated with the referenced String struct
+func (s *String) Type() ObjectType { return STRING_OBJ }
+
+// Inspect returns the String struct's Value which is of type string
+func (s *String) Inspect() string { return s.Value }

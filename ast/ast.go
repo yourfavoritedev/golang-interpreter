@@ -211,6 +211,8 @@ func (ie *InfixExpression) String() string {
 	return out.String()
 }
 
+// Boolean holds a Token field (Token{TokenType, Literal}) for the boolean and
+// a Value field for the actual bool value
 type Boolean struct {
 	Token token.Token
 	Value bool
@@ -351,6 +353,22 @@ func (ce *CallExpression) String() string {
 
 	return out.String()
 }
+
+// StringLiteral holds a Token field (Token{TokenType, Literal}) for the lexed string and
+// a Value field for the actual string value
+type StringLiteral struct {
+	Token token.Token
+	Value string
+}
+
+// expressionNode is implemented to allow StringLiteral to be served as an Expression
+func (sl *StringLiteral) expressionNode() {}
+
+// TokenLiteral returns the literal value (Token.Literal) for the string
+func (sl *StringLiteral) TokenLiteral() string { return sl.Token.Literal }
+
+// String returns the literal value (Token.Literal) for the the StringLiteral
+func (sl *StringLiteral) String() string { return sl.Token.Literal }
 
 // Program serves as the root node of every AST a parser produces.
 type Program struct {

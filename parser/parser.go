@@ -99,6 +99,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral)
 	// register infixParseFn to parse call-expressions
 	p.registerInfix(token.LPAREN, p.parseCallExpression)
+	// register string parsing function
+	p.registerPrefix(token.STRING, p.parseStringLiteral)
 
 	return p
 }
@@ -601,4 +603,10 @@ func (p *Parser) parseCallArguments() []ast.Expression {
 	}
 
 	return args
+}
+
+// parseStringLiteral will construct an ast.StringLiteral node using the current token.
+// The ast.StringLiteral implements the Expression interface.
+func (p *Parser) parseStringLiteral() ast.Expression {
+	return &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
 }
