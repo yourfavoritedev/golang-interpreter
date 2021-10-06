@@ -119,8 +119,7 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 			return args[0]
 		}
 
-		// call it, first by giving it a new "inner" environment and binding the function and its
-		// arguments to that environment. We can then invoke it!
+		// call the function!
 		return applyFunction(function, args)
 	}
 
@@ -128,8 +127,8 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 }
 
 // applyFunction accepts an already evaluated function and evaluated arguments.
-// Depending on the type of function, it decides whether to bind them to a new inner environment
-// or call the function if it is a built-in function.
+// If fn is of type object.Function, it will bind the function and arguments to a new inner environment then evaluate it.
+// If fn is type object.Builtin, it will call the built-in function with the given arguments.
 func applyFunction(fn object.Object, args []object.Object) object.Object {
 	switch fn := fn.(type) {
 	case *object.Function:
