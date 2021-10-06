@@ -16,6 +16,7 @@ const (
 	ERROR_OBJ        = "ERROR"
 	FUNCTION_OBJ     = "FUNCTION"
 	STRING_OBJ       = "STRING"
+	BUILTIN_OBJ      = "BUILTIN"
 )
 
 // ObjectType is the type that represents an evaluated value as a string
@@ -126,7 +127,7 @@ func (f *Function) Inspect() string {
 	return out.String()
 }
 
-// IntStringeger is the referenced struct for String Literals in our object system.
+// String is the referenced struct for String Literals in our object system.
 // The struct holds the evaluated value of the String Literal.
 type String struct {
 	Value string
@@ -137,3 +138,20 @@ func (s *String) Type() ObjectType { return STRING_OBJ }
 
 // Inspect returns the String struct's Value which is of type string
 func (s *String) Inspect() string { return s.Value }
+
+// BuiltinFunction is used to create built-in functions that can be called in the interpretor.
+// The functions are defined by us and can be called by the user. A built-in function can be
+// constructed with any number of arguments of the type Object, but it must return an Object.
+type BuiltinFunction func(args ...Object) Object
+
+// Builtin is the referenced struct for built-in functions in our object system.
+// The struct holds the defined built-in function.
+type Builtin struct {
+	Fn BuiltinFunction
+}
+
+// Type returns the ObjectType (BUILTIN_OBJ) associated with the referenced Builtin struct
+func (b *Builtin) Type() ObjectType { return BUILTIN_OBJ }
+
+// Inspect returns a static string for the Builtin struct
+func (b *Builtin) Inspect() string { return "builtin function" }

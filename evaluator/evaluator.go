@@ -127,21 +127,24 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 	return nil
 }
 
-// applyFunction accepts an already evaluated function and evaluated arguments,
-// and binds them to a new inner environment.
+// applyFunction accepts an already evaluated function and evaluated arguments.
+// Depending on the type of function, it decides whether to bind them to a new inner environment
+// or call the function if it is a built-in function.
 func applyFunction(fn object.Object, args []object.Object) object.Object {
-	// assert that object is a object.Function and get access to its Body and Env
-	function, ok := fn.(*object.Function)
-	if !ok {
+	switch fn := fn.(type) {
+	case *object.Function:
+		// bind function and arguments to a new inner environment
+		extendedEnv := extendFunctionEnv(fn, args)
+		// evaluate the function body within this extended environemnt
+		evaluated := Eval(fn.Body, extendedEnv)
+		// unwrap object if its a return value object
+		return unwrapReturnValue(evaluated)
+	case *object.Builtin:
+		// call the built-in function with the evaluated arguments
+		return fn.Fn(args...)
+	default:
 		return newError("not a function: %s", fn.Type())
 	}
-
-	// bind function and arguments to a new inner environment
-	extendedEnv := extendFunctionEnv(function, args)
-	// evaluate the function body within this extended environemnt
-	evaluated := Eval(function.Body, extendedEnv)
-	// unwrap object if its a return value object
-	return unwrapReturnValue(evaluated)
 }
 
 // extendFunctionEnv creates a new inner environment for an object.Function
@@ -406,17 +409,21 @@ func isError(obj object.Object) bool {
 	return false
 }
 
-// evalIdentifier verifies if an identifier has been previously
-// associated in the environment. If not associated, then return an error because
+// evalIdentifier verifies if an identifier has been previously associated
+// in the environment. Ff an identifier was found, return its mapped object.
+// If not found, then check if there is a built-in function with that identifier.
+// If there is a built-in function then return it. Otherwise, we've encountered an error,
 // we're attempting to evaluate an identifier that has not been introduced to the environment.
-// Otherwise, if an identifier was found, return its mapped object.
 func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object {
-	obj, ok := env.Get(node.Value)
-	if !ok {
-		return newError("identifier not found: %s", node.Value)
+	if val, ok := env.Get(node.Value); ok {
+		return val
 	}
 
-	return obj
+	if builtin, ok := builtins[node.Value]; ok {
+		return builtin
+	}
+
+	return newError("identifier not found: %s", node.Value)
 }
 
 // evalExpressions evaluates the given list of expressions and if no error is encountered
