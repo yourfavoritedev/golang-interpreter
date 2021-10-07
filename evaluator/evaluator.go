@@ -477,10 +477,13 @@ func evalIndexExpression(left, index object.Object) object.Object {
 	}
 }
 
+// evalArrayIndexExpression will return the evaluated element in the array (left)
+// at the given index.Value. If the index is outside the bounds of the array,
+// it will return NULL.
 func evalArrayIndexExpression(left, index object.Object) object.Object {
-	// assert that left is an object.Array so that we can access the elements
+	// assert that left is an object.Array so that we can access its Elements
 	array := left.(*object.Array)
-	// assert that index is an object.Integer so that we can access the value
+	// assert that index is an object.Integer so that we can access its Value
 	idx := index.(*object.Integer).Value
 	maxIdx := int64(len(array.Elements) - 1)
 	if idx > maxIdx || idx < 0 {
