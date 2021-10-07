@@ -89,6 +89,26 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		// Simply evaluates a string literal
 	case *ast.StringLiteral:
 		return &object.String{Value: node.Value}
+	case *ast.ArrayLiteral:
+		// Evaluate the array literal with its elements
+		elements := evalExpressions(node.Elements, env)
+		// Should stop evaluating as soon as we encounter an error while evaluating the elements
+		if len(elements) == 1 && isError(elements[0]) {
+			return elements[0]
+		}
+		return &object.Array{Elements: elements}
+	case *ast.IndexExpression:
+		// Evaluate the index operator expression. First evaluate the actual array which
+		// can take the form of any expression. Then evaluate the index which is also an expression.
+		left := Eval(node.Left, env)
+		if isError(left) {
+			return left
+		}
+		index := Eval(node.Index, env)
+		if isError(index) {
+			return index
+		}
+		return evalIndexExpression(left, index)
 
 	// Identifiers
 	case *ast.Identifier:
@@ -443,4 +463,28 @@ func evalExpressions(
 	}
 
 	return result
+}
+
+// evalIndexExpression evaluates an index operation. If left and index
+// meet the necessary conditions, it will return the evaluated value in that array
+// at that index. Otherwise, it will return an error for the unsupported index operation.
+func evalIndexExpression(left, index object.Object) object.Object {
+	switch {
+	case left.Type() == object.ARRAY_OBJ && index.Type() == object.INTEGER_OBJ:
+		return evalArrayIndexExpression(left, index)
+	default:
+		return newError("index operator not supported: %s", left.Type())
+	}
+}
+
+func evalArrayIndexExpression(left, index object.Object) object.Object {
+	// assert that left is an object.Array so that we can access the elements
+	array := left.(*object.Array)
+	// assert that index is an object.Integer so that we can access the value
+	idx := index.(*object.Integer).Value
+	maxIdx := int64(len(array.Elements) - 1)
+	if idx > maxIdx || idx < 0 {
+		return NULL
+	}
+	return array.Elements[idx]
 }

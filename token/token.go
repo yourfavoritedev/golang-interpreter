@@ -46,7 +46,9 @@ const (
 	RETURN   = "RETURN"
 
 	// Data-types
-	STRING = "STRING"
+	STRING   = "STRING"
+	LBRACKET = "["
+	RBRACKET = "]"
 )
 
 var keywords = map[string]TokenType{

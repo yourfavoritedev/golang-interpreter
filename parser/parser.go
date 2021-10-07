@@ -20,6 +20,7 @@ const (
 	PRODUCT     // *
 	PREFIX      // -X or !X
 	CALL        // myFunction(X)
+	INDEX       // array[index]
 )
 
 // a map of the token infix operators and their precedences
@@ -33,12 +34,13 @@ var precedences = map[token.TokenType]int{
 	token.SLASH:    PRODUCT,
 	token.ASTERISK: PRODUCT,
 	token.LPAREN:   CALL,
+	token.LBRACKET: INDEX,
 }
 
 // Parser constructs the abstract syntax-tree for a program by analyzing the tokens
 // produced by a Lexer. It holds information on the Lexer that is producing tokens,
 // the current token being parsed (curToken), the next token (peekToken),
-// errors that were encourntered during parsing
+// the errors that were encountered during parsing
 // and maps of its tokens with their parsing functions.
 type Parser struct {
 	l         *lexer.Lexer
@@ -101,6 +103,10 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(token.LPAREN, p.parseCallExpression)
 	// register string parsing function
 	p.registerPrefix(token.STRING, p.parseStringLiteral)
+	// register array literal parsing function
+	p.registerPrefix(token.LBRACKET, p.parseArrayLiteral)
+	// register index operator parsing function
+	p.registerInfix(token.LBRACKET, p.parseIndexExpression)
 
 	return p
 }
@@ -288,7 +294,7 @@ func (p *Parser) peekError(t token.TokenType) {
 }
 
 // ParseProgram constructs the root node of a AST an *ast.Program.
-// It then iterates over every token in the input until it encounters an token.EOF token.
+// It then iterates over every token from the lexer until it encounters an token.EOF token.
 func (p *Parser) ParseProgram() *ast.Program {
 	program := &ast.Program{}
 	program.Statements = []ast.Statement{}
@@ -565,48 +571,77 @@ func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 	defer untrace(trace("parseCallExpression"))
 	exp := &ast.CallExpression{Token: p.curToken, Function: function}
 	// construct argument expressions
-	exp.Arguments = p.parseCallArguments()
+	exp.Arguments = p.parseExpressionList(token.RPAREN)
 	return exp
-}
-
-// parseCallArguments constructs the functions's
-// parameters as expressions. The function can be either an identifier or function-literal
-func (p *Parser) parseCallArguments() []ast.Expression {
-	defer untrace(trace("parseCallArguments"))
-	args := []ast.Expression{}
-
-	// early exit if the next token is ")",
-	// advance to ")" to move past parameters
-	// this would mean the function has no parameters, fn()
-	if p.peekTokenIs(token.RPAREN) {
-		p.nextToken()
-		return args
-	}
-
-	// advance past current token "("
-	p.nextToken()
-	// parse the first expression argument
-	args = append(args, p.parseExpression(LOWEST))
-
-	for p.peekTokenIs(token.COMMA) {
-		// advance current token to ","
-		p.nextToken()
-		// advance current token to next argument
-		p.nextToken()
-		args = append(args, p.parseExpression(LOWEST))
-	}
-
-	// if the next token is not ")" after parsing all parameters,
-	// advance to that next token, parser has likely encountered an error
-	if !p.expectPeek(token.RPAREN) {
-		return nil
-	}
-
-	return args
 }
 
 // parseStringLiteral will construct an ast.StringLiteral node using the current token.
 // The ast.StringLiteral implements the Expression interface.
 func (p *Parser) parseStringLiteral() ast.Expression {
 	return &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
+}
+
+// parseArrayLiteral will construct an ast.Arrayliteral node using the current token.
+func (p *Parser) parseArrayLiteral() ast.Expression {
+	array := &ast.ArrayLiteral{Token: p.curToken}
+
+	array.Elements = p.parseExpressionList(token.RBRACKET)
+
+	return array
+}
+
+// parseExpressionList parses the elements of a comma separated list, returning a list of expressions.
+// parseExpressionList is used for both parsing array literal elements and parsing call expression arguments.
+func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
+	list := []ast.Expression{}
+
+	// early exit if the next token matches end (the expected closing token)
+	// This typically would mean the list is empty.
+	if p.peekTokenIs(end) {
+		p.nextToken()
+		return list
+	}
+
+	// advance past starting left bracket "["
+	p.nextToken()
+	// parsing the first element of the list
+	list = append(list, p.parseExpression(LOWEST))
+
+	// Keep parsing the elements of the list while a comma seperated list is present.
+	// After each successful parsing of elements, if the next token would be a "," then keep parsing.
+	for p.peekTokenIs(token.COMMA) {
+		// advance to comma token
+		p.nextToken()
+		// advance past comma token
+		p.nextToken()
+		// parse next value
+		list = append(list, p.parseExpression(LOWEST))
+	}
+
+	// after parsing all elements, if the next token is not the closing bracket "]",
+	// then return nil, we likely have encountered an error.
+	if !p.expectPeek(end) {
+		return nil
+	}
+
+	return list
+}
+
+// parseStringLiteral will construct an ast.IndexExpression node using the current token.
+// The ast.IndexExpression implements the Expression interface.
+func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
+	exp := &ast.IndexExpression{Token: p.curToken, Left: left}
+
+	// advance past "[" token for index operator
+	p.nextToken()
+	// parse the index used to surface the array literal
+	exp.Index = p.parseExpression(LOWEST)
+
+	// after successful parsing, if the next token is not the closing "]" of the index operation,
+	// then return nil, we've likely encountered an error
+	if !p.expectPeek(token.RBRACKET) {
+		return nil
+	}
+
+	return exp
 }

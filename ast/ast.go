@@ -394,3 +394,69 @@ func (p *Program) String() string {
 
 	return out.String()
 }
+
+// ArrayLiteral is used to construct an ast.Node for array literals ([1,2,3]).
+// Parsing the tokens of an array literal should return an ArrayLiteral struct.
+// ArrayLiteral is a valid expression node within the abstract-syntax tree.
+type ArrayLiteral struct {
+	Token    token.Token // the "[" token
+	Elements []Expression
+}
+
+// expressionNode is implemented to allow IntegerLiteral to be served as an Expression
+func (al *ArrayLiteral) expressionNode() {}
+
+// TokenLiteral returns the literal value (Token.Literal) for the opening bracket of the array
+func (al *ArrayLiteral) TokenLiteral() string { return al.Token.Literal }
+
+// String builds the entire ArrayLiteral as a string,
+// first by stringifying all its elments, then building the string
+// with the ArrayLiteral expected components
+func (al *ArrayLiteral) String() string {
+	var out bytes.Buffer
+
+	elements := []string{}
+	for _, el := range al.Elements {
+		elements = append(elements, el.String())
+	}
+
+	out.WriteString("[")
+	out.WriteString(strings.Join(elements, ", "))
+	out.WriteString("]")
+
+	return out.String()
+}
+
+// IndexExpression is used to construct an ast.Node for index operator expressions ([1, 2, 3][1])
+// Parsing the tokens of an index operator expression should return an IndexExpression struct.
+// IndexExpression is a valid expression node within the abstract-syntax tree.
+type IndexExpression struct {
+	Token token.Token // The [ Token
+	Left  Expression
+	Index Expression
+}
+
+// expressionNode is implemented to allow IndexExpression to be served as an Expression
+func (ie *IndexExpression) expressionNode() {}
+
+// TokenLiteral returns the literal value (Token.Literal) for the opening bracket of the index operation
+func (ie *IndexExpression) TokenLiteral() string { return ie.Token.Literal }
+
+// String builds the entire IndexExpression as a string.
+// It stringifies the array and index, then builds the string
+// with the IndexExpression expected components
+func (ie *IndexExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("(")
+	// stringify the "array" being indexed. This "array"
+	// could take the form of an identifier, array literal a function call,
+	// or any expression.
+	out.WriteString(ie.Left.String())
+	out.WriteString("[")
+	// stringify the "index" which can take the form of any valid expression.
+	out.WriteString(ie.Index.String())
+	out.WriteString("])")
+
+	return out.String()
+}

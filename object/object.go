@@ -17,6 +17,7 @@ const (
 	FUNCTION_OBJ     = "FUNCTION"
 	STRING_OBJ       = "STRING"
 	BUILTIN_OBJ      = "BUILTIN"
+	ARRAY_OBJ        = "ARRAY"
 )
 
 // ObjectType is the type that represents an evaluated value as a string
@@ -155,3 +156,30 @@ func (b *Builtin) Type() ObjectType { return BUILTIN_OBJ }
 
 // Inspect returns a static string for the Builtin struct
 func (b *Builtin) Inspect() string { return "builtin function" }
+
+// Array is the referenced struct for Array Literals in our object system.
+// The struct holds the evaluated elements of the array literal
+type Array struct {
+	Elements []Object
+}
+
+// Type returns the ObjectType (ARRAY_OBJ) associated with the referenced Array struct
+func (ao *Array) Type() ObjectType { return ARRAY_OBJ }
+
+// Inspect will construct the Array as a string by stringifying its elements,
+// and concatenating them into the expected array format.
+func (ao *Array) Inspect() string {
+	var out bytes.Buffer
+
+	elements := []string{}
+
+	for _, e := range ao.Elements {
+		elements = append(elements, e.Inspect())
+	}
+
+	out.WriteString("[")
+	out.WriteString(strings.Join(elements, ", "))
+	out.WriteString("]")
+
+	return out.String()
+}
