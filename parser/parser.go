@@ -688,6 +688,8 @@ func (p *Parser) parseHashLiteral() ast.Expression {
 		}
 	}
 
+	// the loop should end with the next token being a "}",
+	// advance to that next than, otherwise, we've encountered an error
 	if !p.expectPeek(token.RBRACE) {
 		return nil
 	}
