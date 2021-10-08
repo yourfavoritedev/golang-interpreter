@@ -370,6 +370,36 @@ func TestBuiltinFunctions(t *testing.T) {
 		{`len("hello world")`, 11},
 		{`len("one", "two")`, "wrong number of arguments. got=2, want=1"},
 		{`len(1)`, "argument to `len` not supported, got=INTEGER"},
+		{`let arr = [1,2,3]; first(arr);`, 1},
+		{`first()`, "wrong number of arguments. got=0, want=1"},
+		{`first(1)`, "argument to `first` must be ARRAY, got INTEGER"},
+		{`let arr = [1,2,3]; last(arr);`, 3},
+		{`last()`, "wrong number of arguments. got=0, want=1"},
+		{`last(1)`, "argument to `last` must be ARRAY, got INTEGER"},
+		{
+			`let arr = [1,2,3]; rest(arr);`,
+			&object.Array{
+				Elements: []object.Object{
+					&object.Integer{Value: 2},
+					&object.Integer{Value: 3},
+				},
+			},
+		},
+		{`rest()`, "wrong number of arguments. got=0, want=1"},
+		{`rest(1)`, "argument to `rest` must be ARRAY, got INTEGER"},
+		{
+			`let arr = [1,2,3]; push(arr, 4);`,
+			&object.Array{
+				Elements: []object.Object{
+					&object.Integer{Value: 1},
+					&object.Integer{Value: 2},
+					&object.Integer{Value: 3},
+					&object.Integer{Value: 4},
+				},
+			},
+		},
+		{`push()`, "wrong number of arguments. got=0, want=2"},
+		{`push(1, 2)`, "argument to `push` must be ARRAY, got INTEGER"},
 	}
 
 	for _, tt := range tests {
