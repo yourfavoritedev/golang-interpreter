@@ -460,3 +460,34 @@ func (ie *IndexExpression) String() string {
 
 	return out.String()
 }
+
+// HashLiteral is used to construct an ast.Node for hash literals ({ "a": 1 })
+// Parsing the tokens of a hash literal should return an HashLiteral struct.
+// HashLiteral is a valid expression node within the abstract-syntax tree.
+type HashLiteral struct {
+	Token token.Token               // the '{' token
+	Pairs map[Expression]Expression // the key value pairs of the hash
+}
+
+// expressionNode is implemented to allow HashLiteral to be served as an Expression
+func (hl *HashLiteral) expressionNode() {}
+
+// TokenLiteral returns the literal value (Token.Literal) for the opening brace of the hash literal
+func (hl *HashLiteral) TokenLiteral() string { return hl.Token.Literal }
+
+// String builds the entire HashLiteral as a string.
+// It stringifies the key value pairs, then builds the string
+// with the String expected components
+func (hl *HashLiteral) String() string {
+	var out bytes.Buffer
+
+	pairs := []string{}
+	for key, value := range hl.Pairs {
+		pairs = append(pairs, key.String()+":"+value.String())
+	}
+	out.WriteString("{")
+	out.WriteString(strings.Join(pairs, ", "))
+	out.WriteString("}")
+
+	return out.String()
+}

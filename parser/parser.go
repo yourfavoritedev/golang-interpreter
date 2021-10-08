@@ -107,6 +107,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.LBRACKET, p.parseArrayLiteral)
 	// register index operator parsing function
 	p.registerInfix(token.LBRACKET, p.parseIndexExpression)
+	// register hash literal parsing function
+	p.registerPrefix(token.LBRACE, p.parseHashLiteral)
 
 	return p
 }
@@ -514,6 +516,7 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 	lit.Parameters = p.parseFunctionParameters()
 
 	// current token should be ")", verify next token is "{"
+	// then advane to that token
 	if !p.expectPeek(token.LBRACE) {
 		return nil
 	}
@@ -555,8 +558,8 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 		identifiers = append(identifiers, ident)
 	}
 
-	// if the next token is not ")" after parsing all parameters,
-	// advance to that next token, parser has likely encountered an error
+	// after parsing all parameters, the next token should be ")",
+	// advance to that next token. otherwise, we've encountered an error
 	if !p.expectPeek(token.RPAREN) {
 		return nil
 	}
@@ -618,8 +621,8 @@ func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
 		list = append(list, p.parseExpression(LOWEST))
 	}
 
-	// after parsing all elements, if the next token is not the closing bracket "]",
-	// then return nil, we likely have encountered an error.
+	// after parsing all elements, the next token should be the closing bracket "]",
+	// advance to that next token. otherwise, we've encountered an error
 	if !p.expectPeek(end) {
 		return nil
 	}
@@ -637,11 +640,57 @@ func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
 	// parse the index used to surface the array literal
 	exp.Index = p.parseExpression(LOWEST)
 
-	// after successful parsing, if the next token is not the closing "]" of the index operation,
-	// then return nil, we've likely encountered an error
+	// after successful parsing, the next token should be closing "]" of the index operation,
+	// advance to that next token, otherwise, we've encountered an error
 	if !p.expectPeek(token.RBRACKET) {
 		return nil
 	}
 
 	return exp
+}
+
+// parseHashLiteral will construct an ast.HashLiteral node using the current token.
+// The ast.HashLiteral implements the Expression interface.
+func (p *Parser) parseHashLiteral() ast.Expression {
+	// initialize the HashLiteral, starting with the current token,"{"
+	hash := &ast.HashLiteral{Token: p.curToken}
+	hash.Pairs = make(map[ast.Expression]ast.Expression)
+
+	// parse through the tokens, while the next token is not a RBRACE, "}",
+	for !p.peekTokenIs(token.RBRACE) {
+		// advance to next token
+		p.nextToken()
+		// parse the key of the key-value pair,
+		// the key can be of any expression type
+		key := p.parseExpression(LOWEST)
+
+		// after parsing the key, the next token should be a colon, ":"
+		// advance to that next token, otherwise, we've encountered an error
+		if !p.expectPeek(token.COLON) {
+			return nil
+		}
+
+		// advance past the colon
+		p.nextToken()
+		// parse the value of the key-value pair
+		value := p.parseExpression(LOWEST)
+
+		// set the key-value pair to the hash-map
+		hash.Pairs[key] = value
+
+		// after a key-value pair has been successfully parsed, we should expect
+		// that the next token is either a closing brace, "}" to signal the end of the map
+		// or comma "," to suggest more pairs.
+		// if the next token is not a closing brace, "}", then the next token should be a comma, ","
+		// advance to that next token, otherwise, we've encountered an error
+		if !p.peekTokenIs(token.RBRACE) && !p.expectPeek(token.COMMA) {
+			return nil
+		}
+	}
+
+	if !p.expectPeek(token.RBRACE) {
+		return nil
+	}
+
+	return hash
 }
