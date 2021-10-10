@@ -3,6 +3,7 @@ package object
 import (
 	"bytes"
 	"fmt"
+	"hash/fnv"
 	"strings"
 
 	"github.com/yourfavoritedev/golang-interpreter/ast"
@@ -18,6 +19,7 @@ const (
 	STRING_OBJ       = "STRING"
 	BUILTIN_OBJ      = "BUILTIN"
 	ARRAY_OBJ        = "ARRAY"
+	HASH_OBJ         = "HASH"
 )
 
 // ObjectType is the type that represents an evaluated value as a string
@@ -44,6 +46,12 @@ func (i *Integer) Inspect() string { return fmt.Sprintf("%d", i.Value) }
 // Type returns the ObjectType (INTEGER_OBJ) associated with the referenced Integer struct
 func (i *Integer) Type() ObjectType { return INTEGER_OBJ }
 
+// HashKey constructs an integer hash-key for a Hash. It uses the Integer's Value
+// as the HashKey value.
+func (i *Integer) HashKey() HashKey {
+	return HashKey{Type: i.Type(), Value: uint64(i.Value)}
+}
+
 // Boolean is the referenced struct for Boolean Literals in our object system.
 // The struct holds the evaluated value of the Boolean Literal.
 type Boolean struct {
@@ -55,6 +63,20 @@ func (b *Boolean) Inspect() string { return fmt.Sprintf("%t", b.Value) }
 
 // Type returns the ObjectType (BOOLEAN_OBJ) associated with the referenced Boolean struct
 func (b *Boolean) Type() ObjectType { return BOOLEAN_OBJ }
+
+// HashKey constructs a boolean hash-key for a Hash. The hash-key can
+// be a binary of 1 or 0 depending on the Boolean's Value (true or false).
+func (b *Boolean) HashKey() HashKey {
+	var value uint64
+
+	if b.Value {
+		value = 1
+	} else {
+		value = 0
+	}
+
+	return HashKey{Type: b.Type(), Value: value}
+}
 
 // Null is the referenced struct for Null Literals in our object system.
 // By nature it has no value, since it represents the absence of any value.
@@ -140,6 +162,21 @@ func (s *String) Type() ObjectType { return STRING_OBJ }
 // Inspect returns the String struct's Value which is of type string
 func (s *String) Inspect() string { return s.Value }
 
+// HashKey constructs a string hash-key for a Hash. The hash-key uses the String's Value
+// to construct a new 64-bit hash and converts it to a primitive uint64 for the hash-key.
+// This helps resolve the issue where &Object.Strings have the same Value, but have different
+// memory allocations. There is an inequality when comparing the index operation's value,
+// map["&Object.String{Value:"key"}"] to a key in the map, {"&Object.String{Value:"key"}": "value"}.
+// By using a HashKey, we convert the &Object.String.Value to a primitive value and use that as the key.
+// A unique input (string) will always return the same corresponding unique output (uint64).
+// We take the inequal memory allocations out of the equation and can now look-up string keys effectively.
+func (s *String) HashKey() HashKey {
+	h := fnv.New64a()
+	h.Write([]byte(s.Value))
+
+	return HashKey{Type: s.Type(), Value: h.Sum64()}
+}
+
 // BuiltinFunction is used to create built-in functions that can be called in the interpretor.
 // The functions are defined by us and can be called by the user. A built-in function can be
 // constructed with any number of arguments of the type Object, but it must return an Object.
@@ -182,4 +219,53 @@ func (ao *Array) Inspect() string {
 	out.WriteString("]")
 
 	return out.String()
+}
+
+// HashPair is the referenced struct used as the designated value to HashKeys.
+// It helps us print the values of the map in a more practial manner by
+// containing both the objects that generated the keys and values of the map.
+type HashPair struct {
+	Key   Object
+	Value Object
+}
+
+// HashKey is the referenced struct for a hash-key used in a Hash.
+// It helps us effectively look up keys in the Hash.Pairs. Type refers to the different
+// object types a hash-key can have (string, integer, boolean) before being converted to a uint64.
+// Value refers to the actual literal value of the key, the key in the key-value pair.
+type HashKey struct {
+	Type  ObjectType
+	Value uint64
+}
+
+// Hash is the referenced stuct for Hash Literals in our object system
+// The struct holds the evaluated map of the hash literal.
+type Hash struct {
+	Pairs map[HashKey]HashPair
+}
+
+// Type returns the ObjectType (HASH_OBJ) associated with the referenced Hash struct
+func (h *Hash) Type() ObjectType { return HASH_OBJ }
+
+// Inspect will construct the Hash as a string by stringifying its key-value pairs,
+// and concatenating them into the expected hash format.
+func (h *Hash) Inspect() string {
+	var out bytes.Buffer
+
+	pairs := []string{}
+	for _, pair := range h.Pairs {
+		pairs = append(pairs, fmt.Sprintf("%s: %s",
+			pair.Key.Inspect(), pair.Value.Inspect()))
+	}
+	out.WriteString("{")
+	out.WriteString(strings.Join(pairs, ", "))
+	out.WriteString("}")
+
+	return out.String()
+}
+
+// Hashable is the interface used in our evaluator to check if the given object is
+// usable as a hash key when we evaluate hash literals or index expressions for hashes.
+type Hashable interface {
+	HashKey() HashKey
 }

@@ -109,6 +109,9 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 			return index
 		}
 		return evalIndexExpression(left, index)
+	case *ast.HashLiteral:
+		// Simply evaluates a hash literal
+		return evalHashLiteral(node, env)
 
 	// Identifiers
 	case *ast.Identifier:
@@ -465,16 +468,47 @@ func evalExpressions(
 	return result
 }
 
-// evalIndexExpression evaluates an index operation. If left and index
-// meet the necessary conditions, it will return the evaluated value in that array
-// at that index. Otherwise, it will return an error for the unsupported index operation.
+// evalIndexExpression evaluates an index operation. It is compatible with
+// evaluating index operations for arrays and hashes. It will determine the appropriate
+// evaluation method depending on the type of the object. If no type is compatible,
+// it will return an error.
 func evalIndexExpression(left, index object.Object) object.Object {
 	switch {
+	// If left.Type() is an ARRAY_OBJ and index.Type() is an INTEGER_OBJ, then
+	// evaluate the array to return the value at that index.
 	case left.Type() == object.ARRAY_OBJ && index.Type() == object.INTEGER_OBJ:
 		return evalArrayIndexExpression(left, index)
+	// If left.Type() is an HASH_OBJ, then evaluate the hash
+	// to return the value at that index (key).
+	case left.Type() == object.HASH_OBJ:
+		return evalHashIndexExpression(left, index)
 	default:
 		return newError("index operator not supported: %s", left.Type())
 	}
+}
+
+func evalHashIndexExpression(hash, index object.Object) object.Object {
+	// assert that the index-value is hashable
+	key, ok := index.(object.Hashable)
+	if !ok {
+		return newError("unusable as hash key: %s", index.Type())
+	}
+
+	// assert hash as an Object.Hash to get access to Hash.Pairs
+	hashObject := hash.(*object.Hash)
+	pairs := hashObject.Pairs
+
+	// use the key to construct the HashKey struct
+	hashKey := key.HashKey()
+	// We can use that same hashKey struct to look up the pairs map since its keys
+	// are also hashKey structs. We perform an equality comparison between the structs.
+	// object.Integer{1: 1} == object.Integer{1: 1} is a valid operation and returns true.
+	pair, ok := pairs[hashKey]
+	if !ok {
+		return NULL
+	}
+
+	return pair.Value
 }
 
 // evalArrayIndexExpression will return the evaluated element in the array (left)
@@ -490,4 +524,36 @@ func evalArrayIndexExpression(left, index object.Object) object.Object {
 		return NULL
 	}
 	return array.Elements[idx]
+}
+
+// evalHashLiteral evaluates a ast.HashLiteral node to construct an object.Hash.
+// It iterates through all the Pairs in the HashLiteral, evaluating all key and value
+// nodes to construct the new object.Hash.
+func evalHashLiteral(
+	node *ast.HashLiteral,
+	env *object.Environment,
+) object.Object {
+	pairs := make(map[object.HashKey]object.HashPair)
+
+	for keyNode, valueNode := range node.Pairs {
+		key := Eval(keyNode, env)
+		if isError(key) {
+			return key
+		}
+
+		hashKey, ok := key.(object.Hashable)
+		if !ok {
+			return newError("unusable as hash key: %s", key.Type())
+		}
+
+		value := Eval(valueNode, env)
+		if isError(value) {
+			return value
+		}
+
+		hashed := hashKey.HashKey()
+		pairs[hashed] = object.HashPair{Key: key, Value: value}
+	}
+
+	return &object.Hash{Pairs: pairs}
 }
