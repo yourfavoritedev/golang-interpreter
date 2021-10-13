@@ -98,7 +98,7 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		}
 		return &object.Array{Elements: elements}
 	case *ast.IndexExpression:
-		// Evaluate the index operator expression. First evaluate the actual array which
+		// Evaluate the index operator expression. First evaluate the object being operated on, it
 		// can take the form of any expression. Then evaluate the index which is also an expression.
 		left := Eval(node.Left, env)
 		if isError(left) {
@@ -487,8 +487,11 @@ func evalIndexExpression(left, index object.Object) object.Object {
 	}
 }
 
+// evalHashIndexExpression will return the evaluated value in the Hash (left)
+// at the given key (index). If the key (index) does not exist in the Hash,
+// it will return NULL.
 func evalHashIndexExpression(hash, index object.Object) object.Object {
-	// assert that the index-value is hashable
+	// assert that the index object is hashable
 	key, ok := index.(object.Hashable)
 	if !ok {
 		return newError("unusable as hash key: %s", index.Type())
@@ -500,9 +503,10 @@ func evalHashIndexExpression(hash, index object.Object) object.Object {
 
 	// use the key to construct the HashKey struct
 	hashKey := key.HashKey()
-	// We can use that same hashKey struct to look up the pairs map since its keys
-	// are also hashKey structs. We perform an equality comparison between the structs.
-	// object.Integer{1: 1} == object.Integer{1: 1} is a valid operation and returns true.
+	// We can use that same hashKey struct to look up the pairs map since its keys are
+	// also hashKey structs. When looking up the key in the map, Go performs an equality
+	// comparison between the structs, ie: object.Integer{1: 1} == object.Integer{1: 1}.
+	// This is a valid comparison operation which leads to finding the matching key-value pair.
 	pair, ok := pairs[hashKey]
 	if !ok {
 		return NULL
