@@ -47,7 +47,7 @@ func (i *Integer) Inspect() string { return fmt.Sprintf("%d", i.Value) }
 func (i *Integer) Type() ObjectType { return INTEGER_OBJ }
 
 // HashKey constructs an integer hash-key for a Hash. It uses the Integer's Value
-// as the HashKey value.
+// as the HashKey value. This HashKey struct will be used as a key in the evaluated Hash Literal.
 func (i *Integer) HashKey() HashKey {
 	return HashKey{Type: i.Type(), Value: uint64(i.Value)}
 }
@@ -66,6 +66,7 @@ func (b *Boolean) Type() ObjectType { return BOOLEAN_OBJ }
 
 // HashKey constructs a boolean hash-key for a Hash. The hash-key can
 // be a binary of 1 or 0 depending on the Boolean's Value (true or false).
+// This HashKey struct will be used as a key in the evaluated Hash Literal.
 func (b *Boolean) HashKey() HashKey {
 	var value uint64
 
@@ -166,10 +167,11 @@ func (s *String) Inspect() string { return s.Value }
 // to construct a new 64-bit hash and converts it to a primitive uint64 for the hash-key.
 // This helps resolve the issue where &Object.Strings have the same Value, but have different
 // memory allocations. There is an inequality when comparing the index operation's value,
-// map["&Object.String{Value:"key"}"] to a key in the map, {"&Object.String{Value:"key"}": "value"}.
-// By using a HashKey, we convert the &Object.String.Value to a primitive value and use that as the key.
+// map[&Object.String{Value:"key"}] to a key in the map, {&Object.String{Value:"key"}: "value"},
+// we are comparing two different pointer addresses. Instead we should compare two structs.
+// By using a HashKey, we convert the &Object.String.Value to a uint64 value and use that as the key.
 // A unique input (string) will always return the same corresponding unique output (uint64).
-// We take the inequal memory allocations out of the equation and can now look-up string keys effectively.
+// We take the inequal pointers out of the equation and now simply compare the two structs.
 func (s *String) HashKey() HashKey {
 	h := fnv.New64a()
 	h.Write([]byte(s.Value))
@@ -239,7 +241,7 @@ type HashKey struct {
 }
 
 // Hash is the referenced stuct for Hash Literals in our object system
-// The struct holds the evaluated map of the hash literal.
+// The Pairs field holds the evaluated map of the hash literal.
 type Hash struct {
 	Pairs map[HashKey]HashPair
 }

@@ -541,7 +541,7 @@ func evalHashLiteral(
 			return key
 		}
 
-		hashKey, ok := key.(object.Hashable)
+		hashable, ok := key.(object.Hashable)
 		if !ok {
 			return newError("unusable as hash key: %s", key.Type())
 		}
@@ -551,8 +551,10 @@ func evalHashLiteral(
 			return value
 		}
 
-		hashed := hashKey.HashKey()
-		pairs[hashed] = object.HashPair{Key: key, Value: value}
+		// construct haskKey struct from hashable object
+		hashKey := hashable.HashKey()
+		// set hashKey struct as new key and assign it a hashPair value
+		pairs[hashKey] = object.HashPair{Key: key, Value: value}
 	}
 
 	return &object.Hash{Pairs: pairs}
