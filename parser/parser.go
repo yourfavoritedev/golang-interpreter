@@ -122,7 +122,6 @@ func (p *Parser) parseIdentifier() ast.Expression {
 // When called, the lexer will examine the next character, produce a new token
 // and advance its position.
 func (p *Parser) nextToken() {
-	defer untrace(trace("nextToken"))
 	p.curToken = p.peekToken
 	p.peekToken = p.l.NextToken()
 }
@@ -221,7 +220,6 @@ func (p *Parser) expectPeek(t token.TokenType) bool {
 // Depending on the current token type, it will use a designated parsing function to construct the Expression
 // The Expression is then set on the ExpressionStatement
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
-	defer untrace(trace("parseExpressionStatement"))
 
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
 	// parseExpression will determine what parsing function to use
@@ -249,7 +247,6 @@ func (p *Parser) noPrefixParseFnError(t token.TokenType) {
 // mapped to the current token. If one exists,
 // it calls the parsing function (func () ast.Expression) and returns the Expression
 func (p *Parser) parseExpression(precedence int) ast.Expression {
-	defer untrace(trace("parseExpression"))
 	// check whether a parsing function exists for this token type
 	prefix := p.prefixParseFns[p.curToken.Type]
 
@@ -327,7 +324,6 @@ func (p *Parser) registerInfix(tokenType token.TokenType, fn infixParseFn) {
 // It uses the current token and converts its literal value into an integer.
 // The IntegerLiteral implements the Expression interface.
 func (p *Parser) parseIntegerLiteral() ast.Expression {
-	defer untrace(trace("parseIntegerLiteral"))
 	lit := &ast.IntegerLiteral{Token: p.curToken}
 	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
 	if err != nil {
@@ -345,7 +341,6 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 // It uses the current token and token literal to construct the PrefixExpression,
 // { Token: { Type: Token.BANG, Literal: "!" }}
 func (p *Parser) parsePrefixExpression() ast.Expression {
-	defer untrace(trace("parsePrefixExpression"))
 	expression := &ast.PrefixExpression{
 		Token:    p.curToken,
 		Operator: p.curToken.Literal,
@@ -385,7 +380,6 @@ func (p *Parser) curPrecedence() int {
 // It uses the current token, "Left" value and token literal to construct the PrefixExpression,
 // { Token: { Type: Token.PLUS, Literal: "+" }, Operator: "+", Left: 5}
 func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
-	defer untrace(trace("parseInfixExpression"))
 	// can assume when this is called, we are already on the infix operator token
 	expression := &ast.InfixExpression{
 		Token:    p.curToken,
@@ -412,7 +406,6 @@ func (p *Parser) parseBoolean() ast.Expression {
 // advancing the current token "(" and calling parseExpression to construct
 // the expression. It expects the parser to have parsed an expression up until the ")" token.
 func (p *Parser) parseGroupedExpression() ast.Expression {
-	defer untrace(trace("parseGroupedExpression"))
 	p.nextToken()
 
 	exp := p.parseExpression(LOWEST)
@@ -431,7 +424,6 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 // parseIfExpression constructs an IfExpression by verifying
 // that all the conditions to create the expression are met
 func (p *Parser) parseIfExpression() ast.Expression {
-	defer untrace(trace("parseIfExpression"))
 	// iniitalize expression with current token (if)
 	expression := &ast.IfExpression{Token: p.curToken}
 
@@ -480,7 +472,6 @@ func (p *Parser) parseIfExpression() ast.Expression {
 // until it encounters either a }, which signifies the end of the block statement
 // or a token.EOF, which tells us there are no more tokens left to parse
 func (p *Parser) parseBlockStatement() *ast.BlockStatement {
-	defer untrace(trace("parseBlockStatement"))
 	block := &ast.BlockStatement{Token: p.curToken}
 	block.Statements = []ast.Statement{}
 
@@ -503,7 +494,6 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 // by verifying that all components of the function-literal are in their
 // expected position
 func (p *Parser) parseFunctionLiteral() ast.Expression {
-	defer untrace(trace("parseFunctionLiteral"))
 	lit := &ast.FunctionLiteral{Token: p.curToken}
 
 	// current token should be "fn", verify next token is "("
@@ -530,7 +520,6 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 // parseFunctionParameters constructs the function-literal's
 // parameters as identifiers
 func (p *Parser) parseFunctionParameters() []*ast.Identifier {
-	defer untrace(trace("parseFunctionParameters"))
 	identifiers := []*ast.Identifier{}
 
 	// early exit if the next token is ")",
@@ -571,7 +560,6 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 // the current token to be "(" amd expects function to be passed as an argument
 // (can be Identifier or function-literal)
 func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
-	defer untrace(trace("parseCallExpression"))
 	exp := &ast.CallExpression{Token: p.curToken, Function: function}
 	// construct argument expressions
 	exp.Arguments = p.parseExpressionList(token.RPAREN)
