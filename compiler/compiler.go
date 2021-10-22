@@ -1,6 +1,8 @@
 package compiler
 
 import (
+	"fmt"
+
 	"github.com/yourfavoritedev/golang-interpreter/ast"
 	"github.com/yourfavoritedev/golang-interpreter/code"
 	"github.com/yourfavoritedev/golang-interpreter/object"
@@ -27,7 +29,7 @@ func New() *Compiler {
 // to generate bytecode. It is a recursive function that navigates the AST,
 // evaluates the nodes and transform them into constants (object.Objects)
 // to be added to the constants pool, and builds the necessary instructions
-// for these constants.
+// for the VM to execute.
 func (c *Compiler) Compile(node ast.Node) error {
 	switch node := node.(type) {
 	case *ast.Program:
@@ -52,6 +54,14 @@ func (c *Compiler) Compile(node ast.Node) error {
 		if err != nil {
 			return err
 		}
+
+		switch node.Operator {
+		case "+":
+			c.emit(code.OpAdd)
+		default:
+			return fmt.Errorf("unknown operator %s", node.Operator)
+		}
+
 	case *ast.IntegerLiteral:
 		integer := &object.Integer{Value: node.Value}
 		c.emit(code.OpConstant, c.addConstant(integer))
@@ -85,9 +95,9 @@ func (c *Compiler) addInstruction(ins []byte) int {
 	return posNewInstruction
 }
 
-// ByteCode constructs a ByteCode struct using the Compiler's
+// Bytecode constructs a Bytecode struct using the Compiler's
 // instructions and constants
-func (c *Compiler) ByteCode() *Bytecode {
+func (c *Compiler) Bytecode() *Bytecode {
 	return &Bytecode{
 		Instructions: c.instructions,
 		Constants:    c.constants,

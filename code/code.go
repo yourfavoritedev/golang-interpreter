@@ -54,6 +54,8 @@ func (ins Instructions) fmtInstruction(def *Definition, operands []int) string {
 	}
 
 	switch operandCount {
+	case 0:
+		return def.Name
 	case 1:
 		return fmt.Sprintf("%s %d", def.Name, operands[0])
 	}
@@ -73,6 +75,7 @@ type Opcode byte
 // the constant (the evaluted expression, object.Object) and push it to the stack.
 const (
 	OpConstant Opcode = iota
+	OpAdd
 )
 
 // Definition helps us understand Opcode defintions. A Definition
@@ -92,6 +95,7 @@ type Definition struct {
 
 var definitions = map[Opcode]*Definition{
 	OpConstant: {"OpConstant", []int{2}}, //OpConstant has one two-byte operand
+	OpAdd:      {"OpAdd", []int{}},       //OpAdd does not have any operands
 }
 
 // Lookup simply finds the definition of the provided op (Opcode)
