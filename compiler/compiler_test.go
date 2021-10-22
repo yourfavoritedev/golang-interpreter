@@ -7,6 +7,7 @@ import (
 	"github.com/yourfavoritedev/golang-interpreter/ast"
 	"github.com/yourfavoritedev/golang-interpreter/code"
 	"github.com/yourfavoritedev/golang-interpreter/lexer"
+	"github.com/yourfavoritedev/golang-interpreter/object"
 	"github.com/yourfavoritedev/golang-interpreter/parser"
 )
 
@@ -19,9 +20,13 @@ type compilerTestCase struct {
 func TestIntegerArithmetic(t *testing.T) {
 	tests := []compilerTestCase{
 		{
-			input:             "1 + 2",
+			input: "1 + 2",
+			// 1 is the first constant, so its position is 0
+			// 2 is the second constant, so its position is 1
 			expectedConstants: []interface{}{1, 2},
 			expectedInstructions: []code.Instructions{
+				// the operand is an identifier for the position of the
+				// the evaluated constant in the constant pool
 				code.Make(code.OpConstant, 0),
 				code.Make(code.OpConstant, 1),
 			},
@@ -95,4 +100,42 @@ func concatInstructions(s []code.Instructions) code.Instructions {
 	}
 
 	return out
+}
+
+func testConstants(
+	t *testing.T,
+	expected []interface{},
+	actual []object.Object,
+) error {
+	if len(expected) != len(actual) {
+		return fmt.Errorf("wrong number of constants. got=%d, want=%d",
+			len(actual), len(expected))
+	}
+
+	for i, constant := range expected {
+		switch constant := constant.(type) {
+		case int:
+			err := testIntegerObject(int64(constant), actual[i])
+			if err != nil {
+				return fmt.Errorf("constant %d - testIntegerObject failed: %s",
+					i, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func testIntegerObject(expected int64, actual object.Object) error {
+	// assert actual is an integer object
+	result, ok := actual.(*object.Integer)
+	if !ok {
+		return fmt.Errorf("object is not Integer. got=%T (%+v)", actual, actual)
+	}
+
+	if result.Value != expected {
+		return fmt.Errorf("object has wrong value. got=%d, want=%d", result.Value, expected)
+	}
+
+	return nil
 }

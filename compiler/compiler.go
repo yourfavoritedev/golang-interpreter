@@ -23,8 +23,66 @@ func New() *Compiler {
 	}
 }
 
+// Compile builds the instructions and constants for the Compiler
+// to generate bytecode. It is a recursive function that navigates the AST,
+// evaluates the nodes and transform them into constants (object.Objects)
+// to be added to the constants pool, and builds the necessary instructions
+// for these constants.
 func (c *Compiler) Compile(node ast.Node) error {
+	switch node := node.(type) {
+	case *ast.Program:
+		for _, s := range node.Statements {
+			err := c.Compile(s)
+			if err != nil {
+				return err
+			}
+		}
+	case *ast.ExpressionStatement:
+		err := c.Compile(node.Expression)
+		if err != nil {
+			return err
+		}
+	case *ast.InfixExpression:
+		err := c.Compile(node.Left)
+		if err != nil {
+			return err
+		}
+
+		err = c.Compile(node.Right)
+		if err != nil {
+			return err
+		}
+	case *ast.IntegerLiteral:
+		integer := &object.Integer{Value: node.Value}
+		c.emit(code.OpConstant, c.addConstant(integer))
+	}
+
 	return nil
+}
+
+// addConstant will add the given obj to the end of the constant pool and
+// will return the index of that obj, that index can be used as an identifier
+// to find obj in the pool.
+func (c *Compiler) addConstant(obj object.Object) int {
+	c.constants = append(c.constants, obj)
+	return len(c.constants) - 1
+}
+
+// emit generates an instruction for the compiler using the given params
+// and then returns the starting position of the new instruction
+func (c *Compiler) emit(op code.Opcode, operands ...int) int {
+	ins := code.Make(op, operands...)
+	pos := c.addInstruction(ins)
+	return pos
+}
+
+// addInstruction builds on top of the compiler's current instructions. It takes
+// the given instruction (ins) and appends it. It returns the starting position of the
+// new instruction which should just be where the instructions initially ended + 1 position.
+func (c *Compiler) addInstruction(ins []byte) int {
+	posNewInstruction := len(c.instructions)
+	c.instructions = append(c.instructions, ins...)
+	return posNewInstruction
 }
 
 // ByteCode constructs a ByteCode struct using the Compiler's
