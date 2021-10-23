@@ -87,7 +87,7 @@ func (c *Compiler) emit(op code.Opcode, operands ...int) int {
 	return pos
 }
 
-// addInstruction builds on top of the compiler's current instructions. It takes
+// addInstruction builds to the compiler's current instructions. It takes
 // the given instruction (ins) and appends it. It returns the starting position of the
 // new instruction which should just be where the instructions initially ended + 1 position.
 func (c *Compiler) addInstruction(ins []byte) int {
