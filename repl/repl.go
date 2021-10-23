@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/yourfavoritedev/golang-interpreter/evaluator"
+	"github.com/yourfavoritedev/golang-interpreter/compiler"
 	"github.com/yourfavoritedev/golang-interpreter/lexer"
-	"github.com/yourfavoritedev/golang-interpreter/object"
 	"github.com/yourfavoritedev/golang-interpreter/parser"
+	"github.com/yourfavoritedev/golang-interpreter/vm"
 )
 
 const PROMPT = ">> "
@@ -17,7 +17,6 @@ const MONKEY_FACE = "@(^_^)@\n"
 func Start(in io.Reader, out io.Writer) {
 	// scanner helps intake standard input (from user) as a data stream
 	scanner := bufio.NewScanner(in)
-	env := object.NewEnvironment()
 
 	// keep accepting standard input until the user forcefully stops the program
 	for {
@@ -45,13 +44,26 @@ func Start(in io.Reader, out io.Writer) {
 			continue
 		}
 
-		// evaluate the AST
-		evaluated := evaluator.Eval(program, env)
-		if evaluated != nil {
-			// write program string to output
-			io.WriteString(out, evaluated.Inspect())
-			io.WriteString(out, "\n")
+		// compile the program
+		comp := compiler.New()
+		err := comp.Compile(program)
+		if err != nil {
+			fmt.Fprintf(out, "Woops! Compilation failed:\n %s\n", err)
+			continue
 		}
+
+		// execute the program
+		machine := vm.New(comp.Bytecode())
+		err = machine.Run()
+		if err != nil {
+			fmt.Fprintf(out, "Woops! Executing bytecode failed:\n %s\n", err)
+			continue
+		}
+
+		stackTop := machine.LastPoppedStackElem()
+		// write program string to output
+		io.WriteString(out, stackTop.Inspect())
+		io.WriteString(out, "\n")
 	}
 }
 
