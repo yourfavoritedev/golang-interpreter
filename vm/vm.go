@@ -62,13 +62,14 @@ func (vm *VM) Run() error {
 				return err
 			}
 
-		// Execute the binary operation for the desginated Opcode instruction.
+		// Execute the binary operation for the desginated Opcode arithmetic instruction.
 		case code.OpAdd, code.OpSub, code.OpMul, code.OpDiv:
 			err := vm.executeBinaryOperation(op)
 			if err != nil {
 				return err
 			}
 
+		// Execute the boolean Opcode instructions. Simply push the corresponding Object.Boolean to the stack.
 		case code.OpTrue:
 			err := vm.push(True)
 			if err != nil {
