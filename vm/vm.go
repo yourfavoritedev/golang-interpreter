@@ -177,7 +177,7 @@ func (vm *VM) executeBinaryIntegerOperation(
 }
 
 // executeComparison will compare the two constants directly above the stack-pointer
-// and then push the result on to the stack. It asserts the type of the two constants (object.Object)
+// and then push the result on to the stack. It validates the type of the two constants (object.Object)
 // to determine what comparison helper to run this pattern.
 func (vm *VM) executeComparison(op code.Opcode) error {
 	right := vm.pop()
@@ -190,19 +190,23 @@ func (vm *VM) executeComparison(op code.Opcode) error {
 		return vm.executeIntegerComparison(op, left, right)
 	}
 
+	// compare of pointer-addresses. For boolean objects,
+	// right and left are holding the constants TRUE and FALSE listed, and we
+	// are reusing those constants so we can compare their pointer-addresses.
 	switch op {
 	case code.OpEqual:
 		return vm.push(nativeBoolToBooleanObject(right == left))
 	case code.OpNotEqual:
 		return vm.push(nativeBoolToBooleanObject(right != left))
 	default:
-		return fmt.Errorf("unknown operator: %s, %s",
-			leftType, rightType)
+		return fmt.Errorf("unknown operator: %d, (%s %s)",
+			op, leftType, rightType)
 	}
 }
 
-// executeIntegerComparison the comparison helper to compare two *object.Integers.
-// It will push the result on to the stack.
+// executeIntegerComparison is the helper to compare two integer constants. It asserts
+// the two constants as *object.Integers and compares their values. With the result
+// of the comparison, it constructs a Boolean Object and pushes it to the stack.
 func (vm *VM) executeIntegerComparison(
 	op code.Opcode,
 	left, right object.Object,
@@ -219,7 +223,7 @@ func (vm *VM) executeIntegerComparison(
 	case code.OpNotEqual:
 		result = nativeBoolToBooleanObject(leftValue != rightValue)
 	default:
-		return fmt.Errorf("unknown integer comparison: %d", op)
+		return fmt.Errorf("unknown operator: %d", op)
 	}
 
 	return vm.push(result)
