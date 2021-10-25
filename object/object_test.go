@@ -1,7 +1,6 @@
 package object
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -10,8 +9,6 @@ func TestStringHashKey(t *testing.T) {
 	hash2 := &String{Value: "Hello World"}
 	hash3 := &String{Value: "My name is johnny"}
 	hash4 := &String{Value: "My name is johnny"}
-
-	fmt.Println(hash1.HashKey())
 
 	if hash1.HashKey() != hash2.HashKey() {
 		t.Errorf("strings with same content but have different hash keys")
