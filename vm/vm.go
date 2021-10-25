@@ -69,6 +69,12 @@ func (vm *VM) Run() error {
 				return err
 			}
 
+		case code.OpGreaterThan, code.OpEqual, code.OpNotEqual:
+			err := vm.executeComparison(op)
+			if err != nil {
+				return err
+			}
+
 		// Execute the boolean Opcode instructions. Simply push the corresponding Object.Boolean to the stack.
 		case code.OpTrue:
 			err := vm.push(True)
@@ -136,7 +142,7 @@ func (vm *VM) executeBinaryOperation(op code.Opcode) error {
 		return vm.executeBinaryIntegerOperation(op, left, right)
 	}
 
-	return fmt.Errorf("unsupported types for bianry operation: %s, %s",
+	return fmt.Errorf("unsupported types for binary operation: %s, %s",
 		leftType, rightType)
 }
 
@@ -168,4 +174,63 @@ func (vm *VM) executeBinaryIntegerOperation(
 
 	// push the Object to the stack
 	return vm.push(&object.Integer{Value: result})
+}
+
+// executeComparison will compare the two constants directly above the stack-pointer
+// and then push the result on to the stack. It asserts the type of the two constants (object.Object)
+// to determine what comparison helper to run this pattern.
+func (vm *VM) executeComparison(op code.Opcode) error {
+	right := vm.pop()
+	left := vm.pop()
+
+	leftType := left.Type()
+	rightType := right.Type()
+
+	if leftType == object.INTEGER_OBJ && rightType == object.INTEGER_OBJ {
+		return vm.executeIntegerComparison(op, left, right)
+	}
+
+	switch op {
+	case code.OpEqual:
+		return vm.push(nativeBoolToBooleanObject(right == left))
+	case code.OpNotEqual:
+		return vm.push(nativeBoolToBooleanObject(right != left))
+	default:
+		return fmt.Errorf("unknown operator: %s, %s",
+			leftType, rightType)
+	}
+}
+
+// executeIntegerComparison the comparison helper to compare two *object.Integers.
+// It will push the result on to the stack.
+func (vm *VM) executeIntegerComparison(
+	op code.Opcode,
+	left, right object.Object,
+) error {
+	leftValue := left.(*object.Integer).Value
+	rightValue := right.(*object.Integer).Value
+
+	var result *object.Boolean
+	switch op {
+	case code.OpGreaterThan:
+		result = nativeBoolToBooleanObject(leftValue > rightValue)
+	case code.OpEqual:
+		result = nativeBoolToBooleanObject(leftValue == rightValue)
+	case code.OpNotEqual:
+		result = nativeBoolToBooleanObject(leftValue != rightValue)
+	default:
+		return fmt.Errorf("unknown integer comparison: %d", op)
+	}
+
+	return vm.push(result)
+
+}
+
+// nativeBoolToBooleanObject simply converts a traditional boolean
+// to an *object.Boolean
+func nativeBoolToBooleanObject(b bool) *object.Boolean {
+	if b {
+		return True
+	}
+	return False
 }
