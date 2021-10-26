@@ -87,6 +87,8 @@ const (
 	OpGreaterThan
 	OpMinus
 	OpBang
+	OpJumpNotTruthy
+	OpJump
 )
 
 // Definition helps us understand Opcode defintions. A Definition
@@ -105,19 +107,21 @@ type Definition struct {
 }
 
 var definitions = map[Opcode]*Definition{
-	OpConstant:    {"OpConstant", []int{2}},   //OpConstant has one two-byte operand
-	OpAdd:         {"OpAdd", []int{}},         //OpAdd does not have any operands
-	OpPop:         {"OpPop", []int{}},         //OpPop does not have any operands
-	OpSub:         {"OpSub", []int{}},         //OpSub does not have any operands
-	OpMul:         {"OpMul", []int{}},         //OpMul does not have any operands
-	OpDiv:         {"OpDiv", []int{}},         //OpDiv does not have any operands
-	OpTrue:        {"OpTrue", []int{}},        //OpTrue does not have any operands
-	OpFalse:       {"OpFalse", []int{}},       //OpFalse does not have any operands
-	OpEqual:       {"OpEqual", []int{}},       //OpEqual does not have any operands
-	OpNotEqual:    {"OpNotEqual", []int{}},    //OpNotEqual does not have any operands
-	OpGreaterThan: {"OpGreaterThan", []int{}}, //OpGreaterThan does not have any operands
-	OpMinus:       {"OpMinus", []int{}},       //OpMinus does not have any operands
-	OpBang:        {"OpBang", []int{}},        //OpBang does not have any operands
+	OpConstant:      {"OpConstant", []int{2}},      //OpConstant has one two-byte operand
+	OpAdd:           {"OpAdd", []int{}},            //OpAdd does not have any operands
+	OpPop:           {"OpPop", []int{}},            //OpPop does not have any operands
+	OpSub:           {"OpSub", []int{}},            //OpSub does not have any operands
+	OpMul:           {"OpMul", []int{}},            //OpMul does not have any operands
+	OpDiv:           {"OpDiv", []int{}},            //OpDiv does not have any operands
+	OpTrue:          {"OpTrue", []int{}},           //OpTrue does not have any operands
+	OpFalse:         {"OpFalse", []int{}},          //OpFalse does not have any operands
+	OpEqual:         {"OpEqual", []int{}},          //OpEqual does not have any operands
+	OpNotEqual:      {"OpNotEqual", []int{}},       //OpNotEqual does not have any operands
+	OpGreaterThan:   {"OpGreaterThan", []int{}},    //OpGreaterThan does not have any operands
+	OpMinus:         {"OpMinus", []int{}},          //OpMinus does not have any operands
+	OpBang:          {"OpBang", []int{}},           //OpBang does not have any operands
+	OpJumpNotTruthy: {"OpJumpNotTruthy", []int{2}}, //OpJumpNotTruthy has one two-byte operand. The operand refers to where in the instructions to jump to.
+	OpJump:          {"OpJump", []int{2}},          //OpJump has one two-byte operand
 }
 
 // Lookup simply finds the definition of the provided op (Opcode)

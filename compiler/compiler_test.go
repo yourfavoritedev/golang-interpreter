@@ -282,3 +282,54 @@ func TestBooleanExpressions(t *testing.T) {
 
 	runCompilerTests(t, tests)
 }
+
+func TestConditionals(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: `
+			if (true) { 10 }; 3333;
+			`,
+			expectedConstants: []interface{}{10, 3333},
+			expectedInstructions: []code.Instructions{
+				// 0000
+				code.Make(code.OpTrue), // 1 byte wide
+				// 0001
+				code.Make(code.OpJumpNotTruthy, 7), // 3 bytes wide
+				// 0004
+				code.Make(code.OpConstant, 0), // 3 bytes wide
+				// 0007
+				code.Make(code.OpPop), // 1 byte wide
+				// 0008
+				code.Make(code.OpConstant, 1), // 3 bytes wide
+				// 0011
+				code.Make(code.OpPop), // 1 byte wide
+			},
+		},
+		{
+			input: `
+			if (true) { 10 } else { 20 }; 3333;
+			`,
+			expectedConstants: []interface{}{10, 20, 3333},
+			expectedInstructions: []code.Instructions{
+				// 0000
+				code.Make(code.OpTrue), // 1 byte wide
+				// 0001
+				code.Make(code.OpJumpNotTruthy, 10), // 3 bytes wide
+				// 0004
+				code.Make(code.OpConstant, 0), // 3 bytes wide
+				// 0007
+				code.Make(code.OpJump, 13), // 3 bytes wide
+				// 0010
+				code.Make(code.OpConstant, 1), // 3 bytes wide
+				// 0013
+				code.Make(code.OpPop), // 1 byte wide
+				// 0014
+				code.Make(code.OpConstant, 2), // 3 bytes wide
+				// 0017
+				code.Make(code.OpPop), // 1 byte wide
+			},
+		},
+	}
+
+	runCompilerTests(t, tests)
+}
