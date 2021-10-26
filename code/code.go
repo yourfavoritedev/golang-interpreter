@@ -85,6 +85,8 @@ const (
 	OpEqual
 	OpNotEqual
 	OpGreaterThan
+	OpMinus
+	OpBang
 )
 
 // Definition helps us understand Opcode defintions. A Definition
@@ -114,6 +116,8 @@ var definitions = map[Opcode]*Definition{
 	OpEqual:       {"OpEqual", []int{}},       //OpEqual does not have any operands
 	OpNotEqual:    {"OpNotEqual", []int{}},    //OpNotEqual does not have any operands
 	OpGreaterThan: {"OpGreaterThan", []int{}}, //OpGreaterThan does not have any operands
+	OpMinus:       {"OpMinus", []int{}},       //OpMinus does not have any operands
+	OpBang:        {"OpBang", []int{}},        //OpBang does not have any operands
 }
 
 // Lookup simply finds the definition of the provided op (Opcode)

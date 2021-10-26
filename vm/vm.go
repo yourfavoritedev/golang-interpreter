@@ -62,15 +62,30 @@ func (vm *VM) Run() error {
 				return err
 			}
 
-		// Execute the binary operation for the desginated Opcode arithmetic instruction.
+		// Execute the binary operation for the Opcode arithmetic instruction.
 		case code.OpAdd, code.OpSub, code.OpMul, code.OpDiv:
 			err := vm.executeBinaryOperation(op)
 			if err != nil {
 				return err
 			}
 
+		// Execute the comparison operation for the Opcode comparison instruction.
 		case code.OpGreaterThan, code.OpEqual, code.OpNotEqual:
 			err := vm.executeComparison(op)
+			if err != nil {
+				return err
+			}
+
+		// Execute the minus "-" operation for this Opcode instruction.
+		case code.OpMinus:
+			err := vm.executeMinusOperator()
+			if err != nil {
+				return err
+			}
+
+		// Execute the bang "!" operation for this Opcode instruction.
+		case code.OpBang:
+			err := vm.executeBangOperator()
 			if err != nil {
 				return err
 			}
@@ -237,4 +252,36 @@ func nativeBoolToBooleanObject(b bool) *object.Boolean {
 		return True
 	}
 	return False
+}
+
+// executeBangOperator handles the execution of an instruction for a OpBang Opcode.
+// It pops the constant above the stack pointer and negates it with the "!" prefix.
+// If the constant is truthy we will push False to the stack. If the constant is falsey
+// we will push True to the stack.
+func (vm *VM) executeBangOperator() error {
+	operand := vm.pop()
+
+	switch operand {
+	case True:
+		return vm.push(False)
+	case False:
+		return vm.push(True)
+	default:
+		return vm.push(False)
+	}
+}
+
+// executeMinusOperator handles the execution of an isntruction for an OpMinus Opcode.
+// It pops the constant above the stack pointer and negates it with the "-" prefix.
+// It will construct a new Integer Object, with its value inversed and push that to the stack.
+func (vm *VM) executeMinusOperator() error {
+	right := vm.pop()
+
+	if right.Type() != object.INTEGER_OBJ {
+		return fmt.Errorf("unsupported type for negation: %s", right.Type())
+	}
+
+	rightValue := right.(*object.Integer).Value
+
+	return vm.push(&object.Integer{Value: -rightValue})
 }
