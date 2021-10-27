@@ -145,12 +145,14 @@ func (vm *VM) Run() error {
 	return nil
 }
 
-// isTruthy simply asserts the provided object to be an object.Boolean
-// and returns its boolean value
+// isTruthy simply asserts the type of the provided object
+// and returns whether whether its value is truthy or falsey
 func isTruthy(obj object.Object) bool {
 	switch obj := obj.(type) {
 	case *object.Boolean:
 		return obj.Value
+	case *object.Null:
+		return false
 	default:
 		return true
 	}
@@ -309,6 +311,8 @@ func (vm *VM) executeBangOperator() error {
 	case True:
 		return vm.push(False)
 	case False:
+		return vm.push(True)
+	case Null:
 		return vm.push(True)
 	default:
 		return vm.push(False)
