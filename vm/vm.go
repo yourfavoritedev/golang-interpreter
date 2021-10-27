@@ -8,7 +8,7 @@ import (
 	"github.com/yourfavoritedev/golang-interpreter/object"
 )
 
-const StackSize = 2048
+const StackSize = 10
 
 var True = &object.Boolean{Value: true}
 var False = &object.Boolean{Value: false}
@@ -102,6 +102,31 @@ func (vm *VM) Run() error {
 				return err
 			}
 
+		// Execute OpJump instruction to jump to the next instruction byte after compiing a truthy condition.
+		case code.OpJump:
+			operand := vm.instructions[ip+1:]
+			// decode the operand and get back the absolute position of the byte to jump to
+			pos := int(code.ReadUint16(operand))
+			// since we're in a loop that increments ip with each iteration, we need to set ip
+			// to the offset right before the one we want. That lets the loop do its work
+			// and ip gets set to the value we want in the next cycle to process that instruction
+			ip = pos - 1
+
+		case code.OpJumpNotTruthy:
+			operand := vm.instructions[ip+1:]
+			// decode the operand and get back the absolute position of the byte to jump to if condition is not truthy
+			pos := int(code.ReadUint16(operand))
+			// increment the instruction-pointer by 2 because OpJumpNotTruthy has one two-byte wide operand
+			// this would prepare us for the next iteration to evaluate the OpConstant - the result of a truthy condition
+			ip += 2
+
+			// pop the condition constant (True or False) and determine where we need to jump
+			condition := vm.pop()
+			if !isTruthy(condition) {
+				// jump pass the consequence when the condition is falsey to process the next instruction
+				ip = pos - 1
+			}
+
 		// OpPop has no operands and simply pops an element from the stack
 		case code.OpPop:
 			// EXECUTE: pop the element before the stack pointer
@@ -110,6 +135,17 @@ func (vm *VM) Run() error {
 	}
 
 	return nil
+}
+
+// isTruthy simply asserts the provided object to be an object.Boolean
+// and returns its boolean value
+func isTruthy(obj object.Object) bool {
+	switch obj := obj.(type) {
+	case *object.Boolean:
+		return obj.Value
+	default:
+		return true
+	}
 }
 
 // push validates the stack size and adds the provided object (o) to the

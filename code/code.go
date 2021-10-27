@@ -195,7 +195,11 @@ func ReadOperands(def *Definition, ins Instructions) ([]int, int) {
 	return operands, offset
 }
 
-// ReadUint16 simply converts the Instructions bytes into a readable uint16
+// ReadUint16 helps use decode the operand correctly. Typically, when we
+// call this function to decode an operand, we pass the entire
+// instructions ([]byte) starting with the operand and then everything else.
+// BigEndian.Uint16 will only return the first decodable int in the []byte
+// which works perfectly to decode operand.
 func ReadUint16(ins Instructions) uint16 {
 	return binary.BigEndian.Uint16(ins)
 }
