@@ -89,6 +89,7 @@ const (
 	OpBang
 	OpJumpNotTruthy
 	OpJump
+	OpNull
 )
 
 // Definition helps us understand Opcode defintions. A Definition
@@ -122,6 +123,7 @@ var definitions = map[Opcode]*Definition{
 	OpBang:          {"OpBang", []int{}},           //OpBang does not have any operands
 	OpJumpNotTruthy: {"OpJumpNotTruthy", []int{2}}, //OpJumpNotTruthy has one two-byte operand. The operand refers to where in the instructions to jump to.
 	OpJump:          {"OpJump", []int{2}},          //OpJump has one two-byte operand
+	OpNull:          {"OpNull", []int{}},           //OpNull does not have any operands
 }
 
 // Lookup simply finds the definition of the provided op (Opcode)

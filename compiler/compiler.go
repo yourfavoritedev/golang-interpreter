@@ -159,28 +159,25 @@ func (c *Compiler) Compile(node ast.Node) error {
 			c.removeLastPop()
 		}
 
-		// if we have no node.Alternative, after compiing the consequence, we can simply jump to the OpPop instruction to pop the constant
-		// that was a result of the consequence. The OpJumpNotTruhy operand will be backpatched with the position of the OpPop instruction.
+		// the code.OpJump instruction is emitted directly after emitting the consequence (almost like its part of the consequence
+		// when the consequence is executed by the VM, it knows to jump over the alternative instruction or over a OpNull instruction.
+		// when an alternative block exists - it tells us the VM it can skip over the alternative).
+		// the OpJump instruction itself is direcly before the alternative or OpNull instruction.
+		// The code.OpJump operand will be backpatched with the position of the instruction to be jumped over
+		// Emit an `OpJump with bogus value` to be backpatched
+		jumpPos := c.emit(code.OpJump, 9999)
+		// as soon as the consequence is emitted, we know exactly what to change the code.OpJumpNotTruthy operand to
+		// knowing that we need to skip over this truthy instruction (consequence) because OpJumpNotTruthy should execute when the condition is falsey.
+		// afterConsequencePos should now be the position of the alternative or OpNull instructiom.
+		afterConsequencePos := len(c.instructions)
+		// replace code.OpJumpNotTruthy's operand with the new position, the position of the alternatve or OpNull instruction (afterConsequencePos)
+		c.changeOperand(jumpNotTruhyPos, afterConsequencePos)
+
+		// if we have no node.Alternative then we need to emit code.OpNull. In the event that the condition is falsey,
+		// we need a OpNull instruction for the VM to be able to execute and pop.
 		if node.Alternative == nil {
-			// as soon as the consequence is compiled, we know exactly what to change the code.OpJumpNotTruthy operand to
-			afterConsequencePos := len(c.instructions)
-			// replace code.OpJumpNotTruthy's operand with the new position, the position after the consequence instruction (afterConsequencePos)
-			c.changeOperand(jumpNotTruhyPos, afterConsequencePos)
-
-			// otherwise, if there is a node.Alternative, after compiling the consequence, we need to emit an OpJump instruction so when
-			// the consequence is executed by the VM, it knows to jump over the alternative instruction. The code.OpJumpNotTruthy operand
-			// will be backpatched with the position of the instruction that starts the Alternative block
+			c.emit(code.OpNull)
 		} else {
-			// Emit an `OpJump with bogus value` to be backpatched
-			jumpPos := c.emit(code.OpJump, 9999)
-			// the code.OpJump instruction is emitted directly after compiling the consequence (almost like its part of the consequence
-			// when an alternative block exists - it tells us the VM it can skip over the alternative).
-			// the OpJump instruction itself is direcly before the alternative instruction.
-			// afterConsequencePos should now be the position of the alternative instructiom.
-			afterConsequencePos := len(c.instructions)
-			// replace code.OpJumpNotTruthy's operand with the new position, the position of the alternatve instruction (afterConsequencePos)
-			c.changeOperand(jumpNotTruhyPos, afterConsequencePos)
-
 			// compile the alternative
 			err := c.Compile(node.Alternative)
 			if err != nil {
@@ -192,12 +189,14 @@ func (c *Compiler) Compile(node ast.Node) error {
 			if c.lastInstructionIsPop() {
 				c.removeLastPop()
 			}
-
-			// as soon as the alternative is compiled, we know exactly what to change the code.OpJump operand to
-			afterAlternativePos := len(c.instructions)
-			// replace code.OpJump's operand with the new position, the position after the alternative instruction (afterAlternativePos)
-			c.changeOperand(jumpPos, afterAlternativePos)
 		}
+
+		// as soon as the alternative or OpNull instruction is emitted, we know exactly what to backpatch the code.OpJump operand to
+		// knowing that we need to skip over these falsey instructions because OpJump should execute as part of the consequence when the condition is truthy.
+		// afterAlternativePos should now be the position after the alternative or OpNull instructiom.
+		afterAlternativePos := len(c.instructions)
+		// replace code.OpJump's operand with the new position, the position after the alternative or OpNull instruction (afterAlternativePos)
+		c.changeOperand(jumpPos, afterAlternativePos)
 
 	// compile a block statement
 	case *ast.BlockStatement:
