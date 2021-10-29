@@ -7,6 +7,7 @@ import (
 
 	"github.com/yourfavoritedev/golang-interpreter/compiler"
 	"github.com/yourfavoritedev/golang-interpreter/lexer"
+	"github.com/yourfavoritedev/golang-interpreter/object"
 	"github.com/yourfavoritedev/golang-interpreter/parser"
 	"github.com/yourfavoritedev/golang-interpreter/vm"
 )
@@ -17,6 +18,11 @@ const MONKEY_FACE = "@(^_^)@\n"
 func Start(in io.Reader, out io.Writer) {
 	// scanner helps intake standard input (from user) as a data stream
 	scanner := bufio.NewScanner(in)
+
+	// helps us preserve the work when running multiple compilations
+	constants := []object.Object{}
+	globals := make([]object.Object, vm.GlobalsSize)
+	symbolTable := compiler.NewSymbolTable()
 
 	// keep accepting standard input until the user forcefully stops the program
 	for {
@@ -45,7 +51,7 @@ func Start(in io.Reader, out io.Writer) {
 		}
 
 		// compile the program
-		comp := compiler.New()
+		comp := compiler.NewWithState(symbolTable, constants)
 		err := comp.Compile(program)
 		if err != nil {
 			fmt.Fprintf(out, "Woops! Compilation failed:\n %s\n", err)
@@ -53,7 +59,9 @@ func Start(in io.Reader, out io.Writer) {
 		}
 
 		// execute the program
-		machine := vm.New(comp.Bytecode())
+		code := comp.Bytecode()
+		constants = code.Constants
+		machine := vm.NewWithGlobalStore(code, globals)
 		err = machine.Run()
 		if err != nil {
 			fmt.Fprintf(out, "Woops! Executing bytecode failed:\n %s\n", err)

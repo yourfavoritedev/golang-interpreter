@@ -90,6 +90,8 @@ const (
 	OpJumpNotTruthy
 	OpJump
 	OpNull
+	OpGetGlobal
+	OpSetGlobal
 )
 
 // Definition helps us understand Opcode defintions. A Definition
@@ -108,7 +110,7 @@ type Definition struct {
 }
 
 var definitions = map[Opcode]*Definition{
-	OpConstant:      {"OpConstant", []int{2}},      //OpConstant has one two-byte operand
+	OpConstant:      {"OpConstant", []int{2}},      //OpConstant has one two-byte operand. The operand refers to the index (position) of the constant in the constants pool.
 	OpAdd:           {"OpAdd", []int{}},            //OpAdd does not have any operands
 	OpPop:           {"OpPop", []int{}},            //OpPop does not have any operands
 	OpSub:           {"OpSub", []int{}},            //OpSub does not have any operands
@@ -122,8 +124,10 @@ var definitions = map[Opcode]*Definition{
 	OpMinus:         {"OpMinus", []int{}},          //OpMinus does not have any operands
 	OpBang:          {"OpBang", []int{}},           //OpBang does not have any operands
 	OpJumpNotTruthy: {"OpJumpNotTruthy", []int{2}}, //OpJumpNotTruthy has one two-byte operand. The operand refers to where in the instructions to jump to.
-	OpJump:          {"OpJump", []int{2}},          //OpJump has one two-byte operand
+	OpJump:          {"OpJump", []int{2}},          //OpJump has one two-byte operand. The operand refers to where in the instructions to jump to.
 	OpNull:          {"OpNull", []int{}},           //OpNull does not have any operands
+	OpGetGlobal:     {"OpGetGlobal", []int{2}},     //OpGetGlobal has one two-byte operand. The operand refers to the unique number of a global binding.
+	OpSetGlobal:     {"OpSetGlobal", []int{2}},     //OpSetGlobal has one two-byte operand. The operand refers to the unique number of a global binding.
 }
 
 // Lookup simply finds the definition of the provided op (Opcode)
