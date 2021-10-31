@@ -234,6 +234,19 @@ func (c *Compiler) Compile(node ast.Node) error {
 		// construct an OpGetGlobal instruction with the symbol's index as the operand
 		c.emit(code.OpGetGlobal, symbol.Index)
 
+	// compile an array literal, it should cosntruct an OpArray instruction with the operand
+	// being the number of elements in the array.
+	case *ast.ArrayLiteral:
+		// compile all elements in the array. The elements themselves are expressions.
+		for _, e := range node.Elements {
+			err := c.Compile(e)
+			if err != nil {
+				return err
+			}
+		}
+
+		c.emit(code.OpArray, len(node.Elements))
+
 	// compile an integer literal
 	case *ast.IntegerLiteral:
 		integer := &object.Integer{Value: node.Value}

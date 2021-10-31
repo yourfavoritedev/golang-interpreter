@@ -159,6 +159,26 @@ func (vm *VM) Run() error {
 				return err
 			}
 
+		// Execute OpArray instruction, it should construct an array and push it on to the stack,
+		// using the values (if any) that were previously loaded.
+		case code.OpArray:
+			// derive the number of elements to pull from the operand
+			operand := vm.instructions[ip+1:]
+			numElements := int(code.ReadUint16(operand))
+			ip += 2
+
+			// construct a new array using elements on the stack, buildArray needs a starting index and non-inclusive ending index
+			array := vm.buildArray(vm.sp-numElements, vm.sp)
+			// sp (stack-pointer) needs to be updated after using the elements to build the new array
+			vm.sp = vm.sp - numElements
+
+			// push the new array onto the stack
+			err := vm.push(array)
+
+			if err != nil {
+				return err
+			}
+
 		// Execute the OpNull instructin. Simply push the Null constant on to the stack
 		case code.OpNull:
 			err := vm.push(Null)
@@ -385,6 +405,18 @@ func (vm *VM) executeMinusOperator() error {
 	rightValue := right.(*object.Integer).Value
 
 	return vm.push(&object.Integer{Value: -rightValue})
+}
+
+// buildArray constructs a new Object.Array using existing elements
+// on the stack. With a given startIndex and endIndex, it will construct
+// an array using all elements from the startIndex up until the endIndex (not inclusive).
+func (vm *VM) buildArray(startIndex, endIndex int) object.Object {
+	elements := make([]object.Object, endIndex-startIndex)
+	for i := startIndex; i < endIndex; i++ {
+		elements[i-startIndex] = vm.stack[i]
+	}
+
+	return &object.Array{Elements: elements}
 }
 
 // NewWithGlobalStore keeps global state in the REPL so the VM can execute
