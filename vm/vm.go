@@ -230,12 +230,15 @@ func (vm *VM) executeBinaryOperation(op code.Opcode) error {
 	leftType := left.Type()
 	rightType := right.Type()
 
-	if leftType == object.INTEGER_OBJ && rightType == object.INTEGER_OBJ {
+	switch {
+	case leftType == object.INTEGER_OBJ && rightType == object.INTEGER_OBJ:
 		return vm.executeBinaryIntegerOperation(op, left, right)
+	case leftType == object.STRING_OBJ && rightType == object.STRING_OBJ:
+		return vm.executeBinaryStringOperation(op, left, right)
+	default:
+		return fmt.Errorf("unsupported types for binary operation: %s, %s",
+			leftType, rightType)
 	}
-
-	return fmt.Errorf("unsupported types for binary operation: %s, %s",
-		leftType, rightType)
 }
 
 // executeBinaryIntegerOperation will perform an arithmetic operation
@@ -266,6 +269,25 @@ func (vm *VM) executeBinaryIntegerOperation(
 
 	// push the Object to the stack
 	return vm.push(&object.Integer{Value: result})
+}
+
+// executeBinaryStringOperation will assert that the provided Objects are
+// string literals, it will concatenate them and push the new string to the stack.
+// If the Opcode is invalid (not OpAdd) it will return an error.
+func (vm *VM) executeBinaryStringOperation(
+	op code.Opcode,
+	left, right object.Object,
+) error {
+	if op != code.OpAdd {
+		return fmt.Errorf("unknown string operation: %d", op)
+	}
+
+	// assert the Objects to grab their string values
+	leftValue := left.(*object.String).Value
+	rightValue := right.(*object.String).Value
+
+	// push the Object to the stack
+	return vm.push(&object.String{Value: fmt.Sprint(leftValue, rightValue)})
 }
 
 // executeComparison will compare the two constants directly above the stack-pointer
