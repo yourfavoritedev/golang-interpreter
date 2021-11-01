@@ -278,6 +278,21 @@ func (c *Compiler) Compile(node ast.Node) error {
 
 		c.emit(code.OpHash, len(node.Pairs)*2)
 
+	// compile an index expression. it should simply compile the object being indexed and then the index itself,
+	// then finally emit an OpIndex instruction.
+	case *ast.IndexExpression:
+		err := c.Compile(node.Left)
+		if err != nil {
+			return err
+		}
+
+		err = c.Compile(node.Index)
+		if err != nil {
+			return err
+		}
+
+		c.emit(code.OpIndex)
+
 	// compile an integer literal
 	case *ast.IntegerLiteral:
 		integer := &object.Integer{Value: node.Value}
