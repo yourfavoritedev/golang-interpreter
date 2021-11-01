@@ -93,6 +93,7 @@ const (
 	OpGetGlobal
 	OpSetGlobal
 	OpArray
+	OpHash
 )
 
 // Definition helps us understand Opcode defintions. A Definition
@@ -130,6 +131,7 @@ var definitions = map[Opcode]*Definition{
 	OpGetGlobal:     {"OpGetGlobal", []int{2}},     //OpGetGlobal has one two-byte operand. The operand refers to the unique number of a global binding.
 	OpSetGlobal:     {"OpSetGlobal", []int{2}},     //OpSetGlobal has one two-byte operand. The operand refers to the unique number of a global binding.
 	OpArray:         {"OpArray", []int{2}},         //OpArray has one two-byte operand. The operand is the number of elements in an array literal.
+	OpHash:          {"OpHash", []int{2}},          //OpHash has one two-byte opereand. The operand is the combined number of keys and values in the hash literal.
 }
 
 // Lookup simply finds the definition of the provided op (Opcode)

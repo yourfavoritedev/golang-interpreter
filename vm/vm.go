@@ -171,10 +171,31 @@ func (vm *VM) Run() error {
 			array := vm.buildArray(vm.sp-numElements, vm.sp)
 			// sp (stack-pointer) needs to be updated after using the elements to build the new array
 			vm.sp = vm.sp - numElements
-
 			// push the new array onto the stack
 			err := vm.push(array)
 
+			if err != nil {
+				return err
+			}
+
+		// Execute OpHash instruction, it should construct a new hash map and push it on to the stack,
+		// using the values (if any) that were previously loaded
+		case code.OpHash:
+			// derive the number of elements to pull from the operand
+			operand := vm.instructions[ip+1:]
+			numElements := int(code.ReadUint16(operand))
+			ip += 2
+
+			// construct a new map using elements on the stack, buildHash needs a starting index and non-inclusive ending index
+			hash, err := vm.buildHash(vm.sp-numElements, vm.sp)
+			if err != nil {
+				return err
+			}
+			// sp (stack-pointer) needs to be updated after using the elements to build the new array
+			vm.sp = vm.sp - numElements
+
+			// push the new hash onto the stack
+			err = vm.push(hash)
 			if err != nil {
 				return err
 			}
@@ -417,6 +438,33 @@ func (vm *VM) buildArray(startIndex, endIndex int) object.Object {
 	}
 
 	return &object.Array{Elements: elements}
+}
+
+// buildHash constructs a new Object.hash using existing elements
+// on the stack. With a given startIndex and endIndex, it will construct a hash
+// using all elements from the startIndex up until the endIndex (not inclusive).
+func (vm *VM) buildHash(
+	startIndex, endIndex int,
+) (object.Object, error) {
+	hashedPairs := make(map[object.HashKey]object.HashPair)
+
+	for i := startIndex; i < endIndex; i += 2 {
+		// build hashPair
+		key := vm.stack[i]
+		value := vm.stack[i+1]
+		pair := object.HashPair{Key: key, Value: value}
+
+		// build hashKey
+		hashKey, ok := key.(object.Hashable)
+		if !ok {
+			return nil, fmt.Errorf("unusable as hash key: %s", key.Type())
+		}
+
+		// assign new key value pair to hash map
+		hashedPairs[hashKey.HashKey()] = pair
+	}
+
+	return &object.Hash{Pairs: hashedPairs}, nil
 }
 
 // NewWithGlobalStore keeps global state in the REPL so the VM can execute

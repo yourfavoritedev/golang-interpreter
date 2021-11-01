@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/yourfavoritedev/golang-interpreter/ast"
 	"github.com/yourfavoritedev/golang-interpreter/code"
@@ -246,6 +247,36 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 
 		c.emit(code.OpArray, len(node.Elements))
+
+	// compile a hash literal, it should construct an OpHash instruction with the operand
+	// being the combined number of keys and values in the hash
+	case *ast.HashLiteral:
+		keys := []ast.Expression{}
+		// get keys from hash
+		for k := range node.Pairs {
+			keys = append(keys, k)
+		}
+
+		// sort keys in descending/increasing order to guarantee a consistent order before we compile them
+		// our tests assert that the instructions are generated in a specific order
+		sort.Slice(keys, func(i, j int) bool {
+			return keys[i].String() < keys[j].String()
+		})
+
+		// build Opcode instructions for keys and their values which should lead to a series
+		// of OpConstants if the hash is not empty
+		for _, k := range keys {
+			err := c.Compile(k)
+			if err != nil {
+				return err
+			}
+			err = c.Compile(node.Pairs[k])
+			if err != nil {
+				return err
+			}
+		}
+
+		c.emit(code.OpHash, len(node.Pairs)*2)
 
 	// compile an integer literal
 	case *ast.IntegerLiteral:
