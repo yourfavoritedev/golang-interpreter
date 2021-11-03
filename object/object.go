@@ -7,19 +7,21 @@ import (
 	"strings"
 
 	"github.com/yourfavoritedev/golang-interpreter/ast"
+	"github.com/yourfavoritedev/golang-interpreter/code"
 )
 
 const (
-	INTEGER_OBJ      = "INTEGER"
-	BOOLEAN_OBJ      = "BOOLEAN"
-	NULL_OBJ         = "NULL"
-	RETURN_VALUE_OBJ = "RETURN_VALUE"
-	ERROR_OBJ        = "ERROR"
-	FUNCTION_OBJ     = "FUNCTION"
-	STRING_OBJ       = "STRING"
-	BUILTIN_OBJ      = "BUILTIN"
-	ARRAY_OBJ        = "ARRAY"
-	HASH_OBJ         = "HASH"
+	INTEGER_OBJ           = "INTEGER"
+	BOOLEAN_OBJ           = "BOOLEAN"
+	NULL_OBJ              = "NULL"
+	RETURN_VALUE_OBJ      = "RETURN_VALUE"
+	ERROR_OBJ             = "ERROR"
+	FUNCTION_OBJ          = "FUNCTION"
+	STRING_OBJ            = "STRING"
+	BUILTIN_OBJ           = "BUILTIN"
+	ARRAY_OBJ             = "ARRAY"
+	HASH_OBJ              = "HASH"
+	COMPILED_FUNCTION_OBJ = "COMPILED_FUNCTION_OBJ"
 )
 
 // ObjectType is the type that represents an evaluated value as a string
@@ -240,7 +242,7 @@ type HashKey struct {
 	Value uint64
 }
 
-// Hash is the referenced stuct for Hash Literals in our object system
+// Hash is the referenced strsuct for Hash Literals in our object system
 // The Pairs field holds the evaluated map of the hash literal.
 type Hash struct {
 	Pairs map[HashKey]HashPair
@@ -270,4 +272,20 @@ func (h *Hash) Inspect() string {
 // usable as a hash key when we evaluate hash literals or index expressions for hashes.
 type Hashable interface {
 	HashKey() HashKey
+}
+
+// CompiledFunction is the referenced struct for compiled functions in our object system.
+// The Instructions field holds the bytecode instructions from compiling a function literal.
+// The CompiledFunction struct is intended to be a bytecode constant, it will be loaded on to
+// to the stack and eventually used by the VM when it executes the function as a call expression instruction (OpCall).
+type CompiledFunction struct {
+	Instructions code.Instructions
+}
+
+// Type returns the ObjectType (COMPILED_FUNCTION_OBJ) associated with the referenced CompiledFunction struct
+func (cf *CompiledFunction) Type() ObjectType { return COMPILED_FUNCTION_OBJ }
+
+// Inspect will simply return a preformatted string for the CompiledFunction with its memory-address.
+func (cf *CompiledFunction) Inspect() string {
+	return fmt.Sprintf("CompiledFunction[%p]", cf)
 }
