@@ -351,6 +351,15 @@ func (c *Compiler) Compile(node ast.Node) error {
 
 		c.emit(code.OpReturnValue)
 
+	// compile a call expression
+	case *ast.CallExpression:
+		err := c.Compile(node.Function)
+		if err != nil {
+			return err
+		}
+
+		c.emit(code.OpCall)
+
 	// compile an integer literal
 	case *ast.IntegerLiteral:
 		integer := &object.Integer{Value: node.Value}
