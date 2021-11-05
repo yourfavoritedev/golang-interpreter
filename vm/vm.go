@@ -302,6 +302,16 @@ func (vm *VM) Run() error {
 				return err
 			}
 
+		// Execute OpReturn instruction. It should just push a Null value to the stack for the function.
+		case code.OpReturn:
+			vm.pop()
+			vm.popFrame()
+
+			err := vm.push(Null)
+			if err != nil {
+				return err
+			}
+
 		// Execute the OpNull instructin. Simply push the Null constant on to the stack
 		case code.OpNull:
 			err := vm.push(Null)
