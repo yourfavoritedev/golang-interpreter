@@ -275,7 +275,7 @@ func (vm *VM) Run() error {
 				return err
 			}
 
-		// Execute OpCall instruction, it should grab the current compiled function object before the stack
+		// Execute OpCall instruction, it should grab the current compiled function object before the stack pointer
 		// and create a new frame for it. On the next iteration, the main while loop will enter this frame and execute its instructions
 		case code.OpCall:
 			// grab the compiled function object from the stack and assert it
@@ -297,8 +297,9 @@ func (vm *VM) Run() error {
 			// pop the frame so the loop can leave this inner execution context
 			frame := vm.popFrame()
 			// the frame.basePointer is the index where the compiledFunctions work(the "hole" and all values produced in the function) starts.
-			// that means frame.basePointer - 1 should be where the compiledFunction constant is on the stack. Upon successful execution,
-			// we need to replace it with the actual returnValue, and update the sp accordingly now that we're doing with that function.
+			// that means frame.basePointer - 1 should be where the compiledFunction constant is on the stack. Upon successful execution of the call-expression,
+			// we need to replace the function constant with the actual returnValue. Thus the stack-pointer (sp) needs to be updated to
+			// apply this change correctly and push the returnValue to the right position on the stack.
 			vm.sp = frame.basePointer - 1
 			err := vm.push(returnValue)
 			if err != nil {
