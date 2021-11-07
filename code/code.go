@@ -98,25 +98,28 @@ const (
 	OpCall
 	OpReturnValue
 	OpReturn
+	OpSetLocal
+	OpGetLocal
 )
 
 // Definition helps us understand Opcode defintions. A Definition
 // gives more insight on an Opcode's human-readable name (Name) and its operands.
-// An operand is simply an identifier, it is the position of a constant (evaluated object) in the constant pool.
-// If an operand is 10000, it refers to a constant at the 10000 position of the constant pool.
-// An Opcode can have a variable number of operands and each operand can have different byte-sizes
-// which is what OperandWidths is trying to represent. For instance, the OpConstant is an Opcode
-// that has 1 operand, and that operand will be two-byte wide (2). A two-byte wide operand can have a maximum value of
-// 65535, which means for OpConstants, the operand can be a max value of 65535, the identifier for the 65535 positioned constant.
-// With that connection, the operandWidth essentially sets the upper-boundary value for the operand, it puts a ceiling on
-// the maximum identifier-position an operand can hold for a constant in the constant pool.
+// OperandWidths records the unique bytewidth that each operand may have
 type Definition struct {
 	Name          string
 	OperandWidths []int
 }
 
 var definitions = map[Opcode]*Definition{
-	OpConstant:      {"OpConstant", []int{2}},      //OpConstant has one two-byte operand. The operand refers to the index (position) of the constant in the constants pool.
+	OpConstant: {"OpConstant", []int{2}}, /**OpConstant has one two-byte operand. The operand refers to the index (position) of the constant in the constants pool.
+	Its operand is simply an identifier, it is the position of a constant (evaluated object) in the constant pool.
+	If an operand is 10000, it refers to a constant at the 10000 position of the constant pool.
+	An Opcode can have a variable number of operands and each operand can have different byte-sizes
+	which is what OperandWidths is trying to represent. For instance, the OpConstant is an Opcode
+	that has 1 operand, and that operand will be two-byte wide (2). A two-byte wide operand can have a maximum value of
+	65535, which means for OpConstants, the operand can be a max value of 65535, the identifier for the 65535 positioned constant.
+	With that connection, the operandWidth essentially sets the upper-boundary value for the operand, it puts a ceiling on
+	the maximum identifier-position an operand can hold for a constant in the constant pool. */
 	OpAdd:           {"OpAdd", []int{}},            //OpAdd does not have any operands
 	OpPop:           {"OpPop", []int{}},            //OpPop does not have any operands
 	OpSub:           {"OpSub", []int{}},            //OpSub does not have any operands
@@ -132,14 +135,16 @@ var definitions = map[Opcode]*Definition{
 	OpJumpNotTruthy: {"OpJumpNotTruthy", []int{2}}, //OpJumpNotTruthy has one two-byte operand. The operand refers to where in the instructions to jump to.
 	OpJump:          {"OpJump", []int{2}},          //OpJump has one two-byte operand. The operand refers to where in the instructions to jump to.
 	OpNull:          {"OpNull", []int{}},           //OpNull does not have any operands
-	OpGetGlobal:     {"OpGetGlobal", []int{2}},     //OpGetGlobal has one two-byte operand. The operand refers to the unique number of a global binding.
-	OpSetGlobal:     {"OpSetGlobal", []int{2}},     //OpSetGlobal has one two-byte operand. The operand refers to the unique number of a global binding.
+	OpGetGlobal:     {"OpGetGlobal", []int{2}},     //OpGetGlobal has one two-byte operand. The operand refers to the unique index of a global binding.
+	OpSetGlobal:     {"OpSetGlobal", []int{2}},     //OpSetGlobal has one two-byte operand. The operand refers to the unique index of a global binding.
 	OpArray:         {"OpArray", []int{2}},         //OpArray has one two-byte operand. The operand is the number of elements in an array literal.
 	OpHash:          {"OpHash", []int{2}},          //OpHash has one two-byte opereand. The operand is the combined number of keys and values in the hash literal.
 	OpIndex:         {"OpIndex", []int{}},          //OpIndex does not have any operands
 	OpCall:          {"OpCall", []int{}},           //OpCall does not have any operands
 	OpReturnValue:   {"OpReturnValue", []int{}},    //OpReturnValue does not have any operands
 	OpReturn:        {"OpReturn", []int{}},         //OpReturn does not have any operands
+	OpSetLocal:      {"OpSetLocal", []int{1}},      //OpSetLocal has one one-byte operand. The operand refers to the unique index of a local binding
+	OpGetLocal:      {"OpGetLocal", []int{1}},      //OpSetGlobal has one one-byte operand. The operand refers to the unique index of a local binding
 }
 
 // Lookup simply finds the definition of the provided op (Opcode)
@@ -152,8 +157,7 @@ func Lookup(op byte) (*Definition, error) {
 }
 
 // Make creates a single bytecode instruction. The instruction
-// consists of an Opcode and an optional number of operands. Each operand
-// is an index-identiifier to a constant in the constant pool
+// consists of an Opcode and an optional number of operands.
 func Make(op Opcode, operands ...int) []byte {
 	// verify that the Opcode definition exists
 	def, ok := definitions[op]
@@ -183,6 +187,9 @@ func Make(op Opcode, operands ...int) []byte {
 		// for two-byte sized operands, encode o with BigEndian
 		case 2:
 			binary.BigEndian.PutUint16(instruction[offset:], uint16(o))
+		// for one-byte size operands, simply set the instruction byte at the offset position to be the operand byte
+		case 1:
+			instruction[offset] = byte(o)
 		}
 		offset += width
 	}
@@ -205,6 +212,9 @@ func ReadOperands(def *Definition, ins Instructions) ([]int, int) {
 		case 2:
 			// decode the two-byte width operand in the given instruction
 			operands[i] = int(ReadUint16(ins[offset:]))
+			// decode the one-byte width operand in the given instruction
+		case 1:
+			operands[i] = int(ins[offset])
 		}
 		// prepare offset for the next byte to be read, if any
 		offset += width

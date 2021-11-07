@@ -41,7 +41,7 @@ type VM struct {
 func New(bytecode *compiler.Bytecode) *VM {
 	// constuct a "main frame" with the bytecode instructions
 	mainFn := &object.CompiledFunction{Instructions: bytecode.Instructions}
-	mainFrame := NewFrame(mainFn)
+	mainFrame := NewFrame(mainFn, 0)
 
 	frames := make([]*Frame, MaxFrames)
 	frames[0] = mainFrame
@@ -54,31 +54,6 @@ func New(bytecode *compiler.Bytecode) *VM {
 		frames:      frames,
 		framesIndex: 1,
 	}
-}
-
-// Frame is the struct that holds the execution-relevant information for a function.
-// It is effectively like the inner-environment of a function, allowing the VM
-// to execute its instructions and update the ip without entangling them with the outer scopes.
-// fn points to the compiled function referenced by the frame.
-// ip is the instruction pointer in this frame for this function.
-type Frame struct {
-	fn *object.CompiledFunction
-	ip int
-}
-
-// NewFrame creates a new frame for the given compiled function
-func NewFrame(fn *object.CompiledFunction) *Frame {
-	return &Frame{
-		fn: fn,
-		// ip is initialized with -1, because we increment ip immediately when we start executing
-		// the frame's instructions, thus giving us the first instruction at position 0.
-		ip: -1,
-	}
-}
-
-// Instructions simply returns the instructions of the compiled function
-func (f *Frame) Instructions() code.Instructions {
-	return f.fn.Instructions
 }
 
 // currentFrame simply returns the current frame, the framesIndex is always prepped to allocate a new frame
@@ -224,6 +199,30 @@ func (vm *VM) Run() error {
 				return err
 			}
 
+		// Execute OpSetLocal instruction
+		case code.OpSetLocal:
+			operand := ins[ip+1]
+			localIndex := int(operand)
+			vm.currentFrame().ip += 1
+
+			frame := vm.currentFrame()
+
+			// set element in stack "hole" reserved for local binding value
+			vm.stack[frame.basePointer+localIndex] = vm.pop()
+
+		// Execute OpGetLocal instruction
+		case code.OpGetLocal:
+			operand := ins[ip+1]
+			localIndex := int(operand)
+			vm.currentFrame().ip += 1
+
+			frame := vm.currentFrame()
+			// push the value in the "hole" to the stack
+			err := vm.push(vm.stack[frame.basePointer+localIndex])
+			if err != nil {
+				return err
+			}
+
 		// Execute OpArray instruction, it should construct an array and push it on to the stack,
 		// using the values (if any) that were previously loaded.
 		case code.OpArray:
@@ -265,7 +264,7 @@ func (vm *VM) Run() error {
 				return err
 			}
 
-		// Execute OpIndex instruction, it should pop the two elements above the sp, the index object and
+		// Execute OpIndex instruction, it should pop the two elements before the sp, the index object and
 		// then the expression object to be indexed. Finally it should push the result of the index operation onto the stack.
 		case code.OpIndex:
 			index := vm.pop()
@@ -276,7 +275,7 @@ func (vm *VM) Run() error {
 				return err
 			}
 
-		// Execute OpCall instruction, it should grab the current compiled function object above the stack
+		// Execute OpCall instruction, it should grab the current compiled function object before the stack
 		// and create a new frame for it. On the next iteration, the main while loop will enter this frame and execute its instructions
 		case code.OpCall:
 			// grab the compiled function object from the stack and assert it
@@ -284,19 +283,23 @@ func (vm *VM) Run() error {
 			if !ok {
 				return fmt.Errorf("calling non-function")
 			}
-			frame := NewFrame(fn)
+			frame := NewFrame(fn, vm.sp)
 			vm.pushFrame(frame)
+			// the stack pointer is `increased` to allocate space ("the hole") for the local-bindings and any new values
+			// generated in the function will start at the updated stack pointer (above the "hole").
+			vm.sp = frame.basePointer + fn.NumLocals
 
-		// Execute OpReturnValue instruction. It should pop the returnValue sitting above the stack pointer and exit
+		// Execute OpReturnValue instruction. It should pop the returnValue sitting before the stack pointer and exit
 		// the inner-execution context accordingly.
 		case code.OpReturnValue:
-			// pop the return value object sitting above sp and adjust sp
+			// pop the return value object sitting before sp and adjust sp
 			returnValue := vm.pop()
 			// pop the frame so the loop can leave this inner execution context
-			vm.popFrame()
-			// pop the above stack element again which should be the compiledFunction object and then
-			// we can push the returnValue to be in its place
-			vm.pop()
+			frame := vm.popFrame()
+			// the frame.basePointer is the index where the compiledFunctions work(the "hole" and all values produced in the function) starts.
+			// that means frame.basePointer - 1 should be where the compiledFunction constant is on the stack. Upon successful execution,
+			// we need to replace it with the actual returnValue, and update the sp accordingly now that we're doing with that function.
+			vm.sp = frame.basePointer - 1
 			err := vm.push(returnValue)
 			if err != nil {
 				return err
@@ -304,8 +307,8 @@ func (vm *VM) Run() error {
 
 		// Execute OpReturn instruction. It should just push a Null value to the stack for the function.
 		case code.OpReturn:
-			vm.pop()
-			vm.popFrame()
+			frame := vm.popFrame()
+			vm.sp = frame.basePointer - 1
 
 			err := vm.push(Null)
 			if err != nil {
@@ -364,7 +367,7 @@ func (vm *VM) LastPoppedStackElem() object.Object {
 	return vm.stack[vm.sp]
 }
 
-// pop simply grabs the constant sittng 1 position above the stackpointer,
+// pop simply grabs the constant sittng 1 position before the stackpointer,
 // it then decrements the stack pointer to be aware of the updated position,
 // leaving that slot to be eventually overwritten with a new constant
 func (vm *VM) pop() object.Object {
@@ -373,7 +376,7 @@ func (vm *VM) pop() object.Object {
 	return o
 }
 
-// executeBinaryOperation pops the two constants above the stack-pointer
+// executeBinaryOperation pops the two constants before the stack-pointer
 // and validates what type of binary operation to run with them. If the combination
 // of types do not have a valid operation an error is returned.
 func (vm *VM) executeBinaryOperation(op code.Opcode) error {
@@ -443,7 +446,7 @@ func (vm *VM) executeBinaryStringOperation(
 	return vm.push(&object.String{Value: fmt.Sprint(leftValue, rightValue)})
 }
 
-// executeComparison will compare the two constants directly above the stack-pointer
+// executeComparison will compare the two constants directly before the stack-pointer
 // and then push the result on to the stack. It validates the type of the two constants (object.Object)
 // to determine what comparison helper to run this pattern.
 func (vm *VM) executeComparison(op code.Opcode) error {
@@ -507,7 +510,7 @@ func nativeBoolToBooleanObject(b bool) *object.Boolean {
 }
 
 // executeBangOperator handles the execution of an instruction for a OpBang Opcode.
-// It pops the constant above the stack pointer and negates it with the "!" prefix.
+// It pops the constant before the stack pointer and negates it with the "!" prefix.
 // If the constant is truthy we will push False to the stack. If the constant is falsey
 // we will push True to the stack.
 func (vm *VM) executeBangOperator() error {
@@ -526,7 +529,7 @@ func (vm *VM) executeBangOperator() error {
 }
 
 // executeMinusOperator handles the execution of an isntruction for an OpMinus Opcode.
-// It pops the constant above the stack pointer and negates it with the "-" prefix.
+// It pops the constant before the stack pointer and negates it with the "-" prefix.
 // It will construct a new Integer Object, with its value inversed and push that to the stack.
 func (vm *VM) executeMinusOperator() error {
 	right := vm.pop()

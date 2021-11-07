@@ -276,10 +276,12 @@ type Hashable interface {
 
 // CompiledFunction is the referenced struct for compiled functions in our object system.
 // The Instructions field holds the bytecode instructions from compiling a function literal.
-// The CompiledFunction struct is intended to be a bytecode constant, it will be loaded on to
+// NumLocals is the number of local bindings in the function.
+// CompiledFunction is intended to be a bytecode constant, it will be loaded on to
 // to the stack and eventually used by the VM when it executes the function as a call expression instruction (OpCall).
 type CompiledFunction struct {
 	Instructions code.Instructions
+	NumLocals    int
 }
 
 // Type returns the ObjectType (COMPILED_FUNCTION_OBJ) associated with the referenced CompiledFunction struct

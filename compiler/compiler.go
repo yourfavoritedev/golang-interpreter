@@ -241,8 +241,12 @@ func (c *Compiler) Compile(node ast.Node) error {
 		// define the identifier in the symbol table
 		symbol := c.symbolTable.Define(node.Name.Value)
 		// the symbol for that identifier now has an index, which we use as an operand
-		// to construct the OpSetGlobal instruction
-		c.emit(code.OpSetGlobal, symbol.Index)
+		// to construct the instruction
+		if symbol.Scope == GlobalScope {
+			c.emit(code.OpSetGlobal, symbol.Index)
+		} else {
+			c.emit(code.OpSetLocal, symbol.Index)
+		}
 
 	// compile an identifier, it should look into the symbolTable to validate that the identifier has
 	// been previously associated with a symbol.
@@ -253,8 +257,12 @@ func (c *Compiler) Compile(node ast.Node) error {
 			return fmt.Errorf("undefined variable: %s", node.Value)
 		}
 
-		// construct an OpGetGlobal instruction with the symbol's index as the operand
-		c.emit(code.OpGetGlobal, symbol.Index)
+		// construct an instruction with the symbol's index as the operand
+		if symbol.Scope == GlobalScope {
+			c.emit(code.OpGetGlobal, symbol.Index)
+		} else {
+			c.emit(code.OpGetLocal, symbol.Index)
+		}
 
 	// compile an array literal, it should cosntruct an OpArray instruction with the operand
 	// being the number of elements in the array.
@@ -314,7 +322,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 
 		c.emit(code.OpIndex)
 
-	// compile a function literal. it should create a unique scope for the function, compile its body into
+	// compile a function literal. It should create a unique scope for the function and compile its body into
 	// instructions, use those instructions to build a object.CompiledFunction, push that object to the
 	// constants pool and finally emit an OpConstant instruction for the function literal.
 	case *ast.FunctionLiteral:
@@ -337,9 +345,13 @@ func (c *Compiler) Compile(node ast.Node) error {
 			c.emit(code.OpReturn)
 		}
 
+		numLocals := c.symbolTable.numDefinitions
 		instructions := c.leaveScope()
 
-		compiledFn := &object.CompiledFunction{Instructions: instructions}
+		compiledFn := &object.CompiledFunction{
+			Instructions: instructions,
+			NumLocals:    numLocals,
+		}
 		c.emit(code.OpConstant, c.addConstant(compiledFn))
 
 	// compile a return statement, it should emit an OpReturnValue instruction
@@ -482,7 +494,8 @@ func (c *Compiler) changeOperand(opPos int, operand int) {
 	c.replaceInstruction(opPos, newInstruction)
 }
 
-// enterScope creates a new unique scope for the Compiler and enters it
+// enterScope creates a new unique scope for the Compiler and enters it.
+// Upon entering a scope, the compiler will use a new, enclosed SymbolTable.
 func (c *Compiler) enterScope() {
 	scope := CompilationScope{
 		instructions:        code.Instructions{},
@@ -492,16 +505,19 @@ func (c *Compiler) enterScope() {
 
 	c.scopes = append(c.scopes, scope)
 	c.scopeIndex++
+	c.symbolTable = NewEnclosedSymbolTable(c.symbolTable)
 }
 
 // leaveScope tells the Compiler to leave the current scope and return
-// the instructions that were created from that scope
+// the instructions that were created from that scope. When leaving the scope,
+// the compiler will `un-enclose` the SymbolTable and use the outer SymbolTable from its parent scope.
 func (c *Compiler) leaveScope() code.Instructions {
 	instructions := c.currentInstructions()
 
 	// remove the current scope (which will always be the last scope) from the scopes stack
 	c.scopes = c.scopes[:len(c.scopes)-1]
 	c.scopeIndex--
+	c.symbolTable = c.symbolTable.Outer
 
 	return instructions
 }
