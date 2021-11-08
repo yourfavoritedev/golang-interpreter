@@ -278,16 +278,15 @@ func (vm *VM) Run() error {
 		// Execute OpCall instruction, it should grab the current compiled function object before the stack pointer
 		// and create a new frame for it. On the next iteration, the main while loop will enter this frame and execute its instructions
 		case code.OpCall:
-			// grab the compiled function object from the stack and assert it
-			fn, ok := vm.stack[vm.sp-1].(*object.CompiledFunction)
-			if !ok {
-				return fmt.Errorf("calling non-function")
+			// get the number of arguments expected by the function. we need them to effectively find the function constant on the stack
+			operand := ins[ip+1]
+			numArgs := int(operand)
+			vm.currentFrame().ip += 1
+
+			err := vm.callFunction(numArgs)
+			if err != nil {
+				return err
 			}
-			frame := NewFrame(fn, vm.sp)
-			vm.pushFrame(frame)
-			// the stack pointer is `increased` to allocate space ("the hole") for the local-bindings and any new values
-			// generated in the function will start at the updated stack pointer (above the "hole").
-			vm.sp = frame.basePointer + fn.NumLocals
 
 		// Execute OpReturnValue instruction. It should pop the returnValue sitting before the stack pointer and exit
 		// the inner-execution context accordingly.
@@ -627,6 +626,31 @@ func (vm *VM) executeHashIndex(hash, index object.Object) error {
 	}
 
 	return vm.push(pair.Value)
+}
+
+// callFunction creates a new frame for the calling function and updates the stack-pointer accordingly
+// so the VM can execute the function.
+func (vm *VM) callFunction(numArgs int) error {
+	// grab the compiled function object from the stack and assert it
+	fn, ok := vm.stack[vm.sp-1-numArgs].(*object.CompiledFunction)
+	if !ok {
+		return fmt.Errorf("calling non-function")
+	}
+
+	if numArgs != fn.NumParameters {
+		return fmt.Errorf("wrong number of arguments: want=%d, got=%d",
+			fn.NumParameters, numArgs)
+	}
+
+	basePointer := vm.sp - numArgs
+	// create a new frame for this function, we need to initialize the basePointer so
+	// it starts directly after the index of the function - being the start of its local-bindings.
+	frame := NewFrame(fn, basePointer)
+	vm.pushFrame(frame)
+	// the stack pointer is `increased` to allocate space ("the hole") for the local-bindings and any new values
+	// generated in the function will start at the updated stack pointer (above the "hole").
+	vm.sp = frame.basePointer + fn.NumLocals
+	return nil
 }
 
 // NewWithGlobalStore keeps global state in the REPL so the VM can execute

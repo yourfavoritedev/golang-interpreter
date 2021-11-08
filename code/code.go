@@ -140,11 +140,11 @@ var definitions = map[Opcode]*Definition{
 	OpArray:         {"OpArray", []int{2}},         //OpArray has one two-byte operand. The operand is the number of elements in an array literal.
 	OpHash:          {"OpHash", []int{2}},          //OpHash has one two-byte opereand. The operand is the combined number of keys and values in the hash literal.
 	OpIndex:         {"OpIndex", []int{}},          //OpIndex does not have any operands
-	OpCall:          {"OpCall", []int{}},           //OpCall does not have any operands
+	OpCall:          {"OpCall", []int{1}},          //OpCall has one one-byte operand. The operand refers to the number of arguments of the calling function.
 	OpReturnValue:   {"OpReturnValue", []int{}},    //OpReturnValue does not have any operands
 	OpReturn:        {"OpReturn", []int{}},         //OpReturn does not have any operands
 	OpSetLocal:      {"OpSetLocal", []int{1}},      //OpSetLocal has one one-byte operand. The operand refers to the unique index of a local binding
-	OpGetLocal:      {"OpGetLocal", []int{1}},      //OpSetGlobal has one one-byte operand. The operand refers to the unique index of a local binding
+	OpGetLocal:      {"OpGetLocal", []int{1}},      //OpGetLocal has one one-byte operand. The operand refers to the unique index of a local binding
 }
 
 // Lookup simply finds the definition of the provided op (Opcode)

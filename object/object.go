@@ -280,8 +280,9 @@ type Hashable interface {
 // CompiledFunction is intended to be a bytecode constant, it will be loaded on to
 // to the stack and eventually used by the VM when it executes the function as a call expression instruction (OpCall).
 type CompiledFunction struct {
-	Instructions code.Instructions
-	NumLocals    int
+	Instructions  code.Instructions
+	NumLocals     int
+	NumParameters int
 }
 
 // Type returns the ObjectType (COMPILED_FUNCTION_OBJ) associated with the referenced CompiledFunction struct

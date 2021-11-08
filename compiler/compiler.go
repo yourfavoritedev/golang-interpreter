@@ -327,6 +327,12 @@ func (c *Compiler) Compile(node ast.Node) error {
 	// constants pool and finally emit an OpConstant instruction for the function literal.
 	case *ast.FunctionLiteral:
 		c.enterScope()
+
+		// bind parameters to the function's symbole table
+		for _, p := range node.Parameters {
+			c.symbolTable.Define(p.Value)
+		}
+
 		err := c.Compile(node.Body)
 		if err != nil {
 			return err
@@ -349,8 +355,9 @@ func (c *Compiler) Compile(node ast.Node) error {
 		instructions := c.leaveScope()
 
 		compiledFn := &object.CompiledFunction{
-			Instructions: instructions,
-			NumLocals:    numLocals,
+			Instructions:  instructions,
+			NumLocals:     numLocals,
+			NumParameters: len(node.Parameters),
 		}
 		c.emit(code.OpConstant, c.addConstant(compiledFn))
 
@@ -370,7 +377,15 @@ func (c *Compiler) Compile(node ast.Node) error {
 			return err
 		}
 
-		c.emit(code.OpCall)
+		// compile the function's arguments and emit their instructions
+		for _, arg := range node.Arguments {
+			err := c.Compile(arg)
+			if err != nil {
+				return err
+			}
+		}
+
+		c.emit(code.OpCall, len(node.Arguments))
 
 	// compile an integer literal
 	case *ast.IntegerLiteral:
