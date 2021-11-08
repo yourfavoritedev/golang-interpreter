@@ -841,6 +841,45 @@ func TestFunctionCalls(t *testing.T) {
 				code.Make(code.OpPop),
 			},
 		},
+		{
+			input: `
+			let multipleBindings = fn(a, b) {
+				let c = 3;
+				let d = 4;
+				a + b + c + d
+			};
+			multipleBindings(1, 2)
+			`,
+			expectedConstants: []interface{}{
+				3,
+				4,
+				[]code.Instructions{
+					code.Make(code.OpConstant, 0),
+					code.Make(code.OpSetLocal, 2),
+					code.Make(code.OpConstant, 1),
+					code.Make(code.OpSetLocal, 3),
+					code.Make(code.OpGetLocal, 0),
+					code.Make(code.OpGetLocal, 1),
+					code.Make(code.OpAdd),
+					code.Make(code.OpGetLocal, 2),
+					code.Make(code.OpAdd),
+					code.Make(code.OpGetLocal, 3),
+					code.Make(code.OpAdd),
+					code.Make(code.OpReturnValue),
+				},
+				1,
+				2,
+			},
+			expectedInstructions: []code.Instructions{
+				code.Make(code.OpConstant, 2),
+				code.Make(code.OpSetGlobal, 0),
+				code.Make(code.OpGetGlobal, 0),
+				code.Make(code.OpConstant, 3),
+				code.Make(code.OpConstant, 4),
+				code.Make(code.OpCall, 2),
+				code.Make(code.OpPop),
+			},
+		},
 	}
 
 	runCompilerTests(t, tests)

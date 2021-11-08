@@ -513,6 +513,17 @@ func TestCallingFunctionsWithArgumentsAndBindings(t *testing.T) {
 		`,
 			expected: 50,
 		},
+		{
+			input: `
+		let multipleBindings = fn(a, b) {
+			let c = 3;
+			let d = 4;
+			a + b + c + d
+		};
+		multipleBindings(1, 2)
+		`,
+			expected: 10,
+		},
 	}
 
 	runVmTests(t, tests)
