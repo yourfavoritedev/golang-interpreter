@@ -100,6 +100,7 @@ const (
 	OpReturn
 	OpSetLocal
 	OpGetLocal
+	OpGetBuiltin
 )
 
 // Definition helps us understand Opcode defintions. A Definition
@@ -145,6 +146,7 @@ var definitions = map[Opcode]*Definition{
 	OpReturn:        {"OpReturn", []int{}},         //OpReturn does not have any operands
 	OpSetLocal:      {"OpSetLocal", []int{1}},      //OpSetLocal has one one-byte operand. The operand refers to the unique index of a local binding
 	OpGetLocal:      {"OpGetLocal", []int{1}},      //OpGetLocal has one one-byte operand. The operand refers to the unique index of a local binding
+	OpGetBuiltin:    {"OpGetBuiltin", []int{1}},    //OpGetBuiltin has one one-byte operand. The operand refers to the unique index of the BuiltIn function in object.Builtins.
 }
 
 // Lookup simply finds the definition of the provided op (Opcode)

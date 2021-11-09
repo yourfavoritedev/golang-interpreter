@@ -223,6 +223,19 @@ func (vm *VM) Run() error {
 				return err
 			}
 
+		// Execute OpGetBuiltin instruction
+		case code.OpGetBuiltin:
+			operand := ins[ip+1]
+			builtinIndex := int(operand)
+			vm.currentFrame().ip += 1
+			// use index to grab the built-in function from the object.Builtins slice
+			definition := object.Builtins[builtinIndex]
+			// push the built-in function to the stack
+			err := vm.push(definition.Builtin)
+			if err != nil {
+				return err
+			}
+
 		// Execute OpArray instruction, it should construct an array and push it on to the stack,
 		// using the values (if any) that were previously loaded.
 		case code.OpArray:
@@ -282,8 +295,8 @@ func (vm *VM) Run() error {
 			operand := ins[ip+1]
 			numArgs := int(operand)
 			vm.currentFrame().ip += 1
-
-			err := vm.callFunction(numArgs)
+			// execute the function
+			err := vm.executeCall(int(numArgs))
 			if err != nil {
 				return err
 			}
@@ -628,15 +641,24 @@ func (vm *VM) executeHashIndex(hash, index object.Object) error {
 	return vm.push(pair.Value)
 }
 
+// executeCall is invoked when the VM executes the OpCall expression. When a function is called,
+// we want to grab it from the stack and apply the helper method that it matches with.
+func (vm *VM) executeCall(numArgs int) error {
+	// grab the function object from the stack and determine how to call it
+	callee := vm.stack[vm.sp-1-numArgs]
+	switch callee := callee.(type) {
+	case *object.CompiledFunction:
+		return vm.callFunction(callee, numArgs)
+	case *object.Builtin:
+		return vm.callBuiltin(callee, numArgs)
+	default:
+		return fmt.Errorf("calling non-function and non-built-in")
+	}
+}
+
 // callFunction creates a new frame for the calling function and updates the stack-pointer accordingly
 // so the VM can execute the function.
-func (vm *VM) callFunction(numArgs int) error {
-	// grab the compiled function object from the stack and assert it
-	fn, ok := vm.stack[vm.sp-1-numArgs].(*object.CompiledFunction)
-	if !ok {
-		return fmt.Errorf("calling non-function")
-	}
-
+func (vm *VM) callFunction(fn *object.CompiledFunction, numArgs int) error {
 	if numArgs != fn.NumParameters {
 		return fmt.Errorf("wrong number of arguments: want=%d, got=%d",
 			fn.NumParameters, numArgs)
@@ -650,6 +672,24 @@ func (vm *VM) callFunction(numArgs int) error {
 	// the stack pointer is `increased` to allocate space ("the hole") for the local-bindings and any new values
 	// generated in the function will start at the updated stack pointer (above the "hole").
 	vm.sp = frame.basePointer + fn.NumLocals
+	return nil
+}
+
+// callBuiltin executes the builtin function and pushes the return value onto the stack
+func (vm *VM) callBuiltin(builtin *object.Builtin, numArgs int) error {
+	// grab the arguments for this function on the stack
+	args := vm.stack[vm.sp-numArgs : vm.sp]
+	// execute the builtin function
+	result := builtin.Fn(args...)
+	// set sp to the position of the built-in function on the stack
+	vm.sp = vm.sp - numArgs - 1
+	// replace function with return value
+	if result != nil {
+		vm.push(result)
+	} else {
+		vm.push(Null)
+	}
+
 	return nil
 }
 

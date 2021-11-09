@@ -4,8 +4,9 @@ package compiler
 type SymbolScope string
 
 const (
-	LocalScope  SymbolScope = "LOCAL"
-	GlobalScope SymbolScope = "GLOBAL"
+	LocalScope   SymbolScope = "LOCAL"
+	GlobalScope  SymbolScope = "GLOBAL"
+	BuiltinScope SymbolScope = "BUILTIN"
 )
 
 // Symbol is the struct that holds all the necessary information about a symbol
@@ -50,6 +51,14 @@ func (st *SymbolTable) Define(name string) Symbol {
 
 	st.store[name] = symbol
 	st.numDefinitions++
+	return symbol
+}
+
+// DefineBuiltin sets an identifier/symbol association for a builtin function in the SymbolTable's store.
+// It uses the index of the builtin function in Builtins and its name to create a new symbol with the BuiltinScope
+func (st *SymbolTable) DefineBuiltin(index int, name string) Symbol {
+	symbol := Symbol{Name: name, Index: index, Scope: BuiltinScope}
+	st.store[name] = symbol
 	return symbol
 }
 

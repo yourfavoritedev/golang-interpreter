@@ -50,9 +50,15 @@ func New() *Compiler {
 		previousInstruction: EmittedInstruction{},
 	}
 
+	// initialize symbol table with built-in functions
+	symbolTable := NewSymbolTable()
+	for i, v := range object.Builtins {
+		symbolTable.DefineBuiltin(i, v.Name)
+	}
+
 	return &Compiler{
 		constants:   []object.Object{},
-		symbolTable: NewSymbolTable(),
+		symbolTable: symbolTable,
 		scopes:      []CompilationScope{mainScope},
 		scopeIndex:  0,
 	}
@@ -258,11 +264,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 
 		// construct an instruction with the symbol's index as the operand
-		if symbol.Scope == GlobalScope {
-			c.emit(code.OpGetGlobal, symbol.Index)
-		} else {
-			c.emit(code.OpGetLocal, symbol.Index)
-		}
+		c.loadSymbol(symbol)
 
 	// compile an array literal, it should cosntruct an OpArray instruction with the operand
 	// being the number of elements in the array.
@@ -535,6 +537,18 @@ func (c *Compiler) leaveScope() code.Instructions {
 	c.symbolTable = c.symbolTable.Outer
 
 	return instructions
+}
+
+// loadSymbol uses the scope of the given Symbol to determine what Opcode instruction to emit
+func (c *Compiler) loadSymbol(s Symbol) {
+	switch s.Scope {
+	case GlobalScope:
+		c.emit(code.OpGetGlobal, s.Index)
+	case LocalScope:
+		c.emit(code.OpGetLocal, s.Index)
+	case BuiltinScope:
+		c.emit(code.OpGetBuiltin, s.Index)
+	}
 }
 
 // Bytecode constructs a Bytecode struct using the Compiler's
