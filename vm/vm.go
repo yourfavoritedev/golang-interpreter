@@ -41,7 +41,8 @@ type VM struct {
 func New(bytecode *compiler.Bytecode) *VM {
 	// constuct a "main frame" with the bytecode instructions
 	mainFn := &object.CompiledFunction{Instructions: bytecode.Instructions}
-	mainFrame := NewFrame(mainFn, 0)
+	mainClosure := &object.Closure{Fn: mainFn}
+	mainFrame := NewFrame(mainClosure, 0)
 
 	frames := make([]*Frame, MaxFrames)
 	frames[0] = mainFrame
@@ -284,6 +285,20 @@ func (vm *VM) Run() error {
 			left := vm.pop()
 
 			err := vm.executeIndexExpression(left, index)
+			if err != nil {
+				return err
+			}
+
+		// Execute OpClosure instruction. This is the designated instruction that will grab the existing object.CompiledFunction
+		// from the constants pool, enclose it in a Closure and push it on to the stack.
+		case code.OpClosure:
+			// grab the index of the object.CompiledFunction in the constants pool
+			constIndex := code.ReadUint16(ins[ip+1:])
+			// TO-DO: operand work on free variable
+			_ = ins[ip+3]
+			vm.currentFrame().ip += 3
+			// push closure to stack
+			err := vm.pushClosure(int(constIndex))
 			if err != nil {
 				return err
 			}
@@ -644,11 +659,11 @@ func (vm *VM) executeHashIndex(hash, index object.Object) error {
 // executeCall is invoked when the VM executes the OpCall expression. When a function is called,
 // we want to grab it from the stack and apply the helper method that it matches with.
 func (vm *VM) executeCall(numArgs int) error {
-	// grab the function object from the stack and determine how to call it
+	// grab the "function" object from the stack and determine how to call it
 	callee := vm.stack[vm.sp-1-numArgs]
 	switch callee := callee.(type) {
-	case *object.CompiledFunction:
-		return vm.callFunction(callee, numArgs)
+	case *object.Closure:
+		return vm.callClosure(callee, numArgs)
 	case *object.Builtin:
 		return vm.callBuiltin(callee, numArgs)
 	default:
@@ -656,23 +671,37 @@ func (vm *VM) executeCall(numArgs int) error {
 	}
 }
 
-// callFunction creates a new frame for the calling function and updates the stack-pointer accordingly
+// callClosure creates a new frame for the calling function and updates the stack-pointer accordingly
 // so the VM can execute the function.
-func (vm *VM) callFunction(fn *object.CompiledFunction, numArgs int) error {
-	if numArgs != fn.NumParameters {
+func (vm *VM) callClosure(cl *object.Closure, numArgs int) error {
+	if numArgs != cl.Fn.NumParameters {
 		return fmt.Errorf("wrong number of arguments: want=%d, got=%d",
-			fn.NumParameters, numArgs)
+			cl.Fn.NumParameters, numArgs)
 	}
 
 	basePointer := vm.sp - numArgs
 	// create a new frame for this function, we need to initialize the basePointer so
 	// it starts directly after the index of the function - being the start of its local-bindings.
-	frame := NewFrame(fn, basePointer)
+	frame := NewFrame(cl, basePointer)
 	vm.pushFrame(frame)
 	// the stack pointer is `increased` to allocate space ("the hole") for the local-bindings and any new values
 	// generated in the function will start at the updated stack pointer (above the "hole").
-	vm.sp = frame.basePointer + fn.NumLocals
+	vm.sp = frame.basePointer + cl.Fn.NumLocals
 	return nil
+}
+
+// pushClosure grabs a compiledFunction at the given constIndex in the constants pool,
+// wraps it in a Closure and pushes it onto the stack
+func (vm *VM) pushClosure(constIndex int) error {
+	constant := vm.constants[constIndex]
+	// assert that constant is a compiledFuncion
+	function, ok := constant.(*object.CompiledFunction)
+	if !ok {
+		return fmt.Errorf("not a function: %+v", constant)
+	}
+
+	closure := &object.Closure{Fn: function}
+	return vm.push(closure)
 }
 
 // callBuiltin executes the builtin function and pushes the return value onto the stack

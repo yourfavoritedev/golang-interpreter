@@ -58,6 +58,8 @@ func (ins Instructions) fmtInstruction(def *Definition, operands []int) string {
 		return def.Name
 	case 1:
 		return fmt.Sprintf("%s %d", def.Name, operands[0])
+	case 2:
+		return fmt.Sprintf("%s %d %d", def.Name, operands[0], operands[1])
 	}
 
 	return fmt.Sprintf("ERROR: unhandled operandCount for %s\n", def.Name)
@@ -101,6 +103,7 @@ const (
 	OpSetLocal
 	OpGetLocal
 	OpGetBuiltin
+	OpClosure
 )
 
 // Definition helps us understand Opcode defintions. A Definition
@@ -147,6 +150,9 @@ var definitions = map[Opcode]*Definition{
 	OpSetLocal:      {"OpSetLocal", []int{1}},      //OpSetLocal has one one-byte operand. The operand refers to the unique index of a local binding
 	OpGetLocal:      {"OpGetLocal", []int{1}},      //OpGetLocal has one one-byte operand. The operand refers to the unique index of a local binding
 	OpGetBuiltin:    {"OpGetBuiltin", []int{1}},    //OpGetBuiltin has one one-byte operand. The operand refers to the unique index of the BuiltIn function in object.Builtins.
+	OpClosure:       {"OpClosure", []int{2, 1}},    /**OpClosure has two operands. The first operand is two-bytes wide and refers to the
+	index of the object.CompiledFunction in the constants pool. The second operand is one-byte wide and specifies how many free variables sit on the stack and need to
+	be transferred to the about-to-be-created closure **/
 }
 
 // Lookup simply finds the definition of the provided op (Opcode)

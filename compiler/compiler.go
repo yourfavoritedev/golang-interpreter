@@ -326,7 +326,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 
 	// compile a function literal. It should create a unique scope for the function and compile its body into
 	// instructions, use those instructions to build a object.CompiledFunction, push that object to the
-	// constants pool and finally emit an OpConstant instruction for the function literal.
+	// constants pool and finally emit an OpClosure instruction for the function literal.
 	case *ast.FunctionLiteral:
 		c.enterScope()
 
@@ -361,7 +361,10 @@ func (c *Compiler) Compile(node ast.Node) error {
 			NumLocals:     numLocals,
 			NumParameters: len(node.Parameters),
 		}
-		c.emit(code.OpConstant, c.addConstant(compiledFn))
+
+		// add the compiledFn into the constants pool and use its index as the first operand
+		fnIndex := c.addConstant(compiledFn)
+		c.emit(code.OpClosure, fnIndex, 0)
 
 	// compile a return statement, it should emit an OpReturnValue instruction
 	case *ast.ReturnStatement:

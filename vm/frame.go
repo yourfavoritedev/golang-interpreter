@@ -8,7 +8,7 @@ import (
 // Frame is the struct that holds the execution-relevant information for a function.
 // It is effectively like the inner-environment of a function, allowing the VM
 // to execute its instructions and update the ip (instruction-pointer) without entangling them with the outer scopes.
-// fn points to the compiled function referenced by the frame.
+// cl points to the closure referenced by the frame.
 // ip is the instruction pointer in this frame for this function.
 // basePointer is a stack pointer value to indicate where in the stack to start allocating memory when executing the function,
 // it is used to create a "hole" on the stack to store all the local bindings of the function.
@@ -19,15 +19,15 @@ import (
 // When the function exits, we can restore the stack, removing all values after the initial basePointer, thus giving us
 // the stack before the function was called.
 type Frame struct {
-	fn          *object.CompiledFunction
+	cl          *object.Closure
 	ip          int
 	basePointer int
 }
 
 // NewFrame creates a new frame for the given compiled function
-func NewFrame(fn *object.CompiledFunction, basePointer int) *Frame {
+func NewFrame(cl *object.Closure, basePointer int) *Frame {
 	return &Frame{
-		fn: fn,
+		cl: cl,
 		// ip is initialized with -1, because we increment ip immediately when we start executing
 		// the frame's instructions, thus giving us the first instruction at position 0.
 		ip:          -1,
@@ -35,7 +35,7 @@ func NewFrame(fn *object.CompiledFunction, basePointer int) *Frame {
 	}
 }
 
-// Instructions simply returns the instructions of the compiled function
+// Instructions simply returns the instructions of the function enclosed by the Closure
 func (f *Frame) Instructions() code.Instructions {
-	return f.fn.Instructions
+	return f.cl.Fn.Instructions
 }
