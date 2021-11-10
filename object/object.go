@@ -299,8 +299,8 @@ func (cf *CompiledFunction) Inspect() string {
 // Free is a slice that keeps track of the free-variables relevant to the closure.
 // A Closure struct will be constructed during run-time (when the VM executes)
 // The Compiler provides an OpClosure instruction and the VM executes it,
-// it will wrap an *object.CompiledFunction in a new Closure.
-// All *object.CompiledFunction objects will be wrapped by a Closure for convenience in execution.
+// the will wrap an *object.CompiledFunction from the constants pool in a new Closure and put it on the stack.
+// NOTE: All *object.CompiledFunctions will be wrapped by a Closure.
 type Closure struct {
 	Fn   *CompiledFunction
 	Free []Object
