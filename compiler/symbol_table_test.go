@@ -185,3 +185,160 @@ func TestDefineResolveBuiltins(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveFree(t *testing.T) {
+	/** mocking the behavior or
+	let a = 1;
+	let b = 2;
+
+	let firstLocal = fn() {
+		let c = 3;
+		let d = 4;
+		a + b + c + d
+
+		let secondLocal = fn() {
+			let e = 5;
+			let f = 6
+			a + b + c + d + e + f
+
+			let thirdLocal = fn() {
+				let g = 7;
+				let h = 8
+				a + b + c + d + e + f + g + h
+			};
+		};
+	};
+	*/
+	global := NewSymbolTable()
+	global.Define("a")
+	global.Define("b")
+
+	firstLocal := NewEnclosedSymbolTable(global)
+	firstLocal.Define("c")
+	firstLocal.Define("d")
+
+	secondLocal := NewEnclosedSymbolTable(firstLocal)
+	secondLocal.Define("e")
+	secondLocal.Define("f")
+
+	thirdLocal := NewEnclosedSymbolTable(secondLocal)
+	thirdLocal.Define("g")
+	thirdLocal.Define("h")
+
+	tests := []struct {
+		table               *SymbolTable
+		expectedSymbols     []Symbol
+		expectedFreeSymbols []Symbol
+	}{
+		{
+			firstLocal,
+			[]Symbol{
+				Symbol{Name: "a", Scope: GlobalScope, Index: 0},
+				Symbol{Name: "b", Scope: GlobalScope, Index: 1},
+				Symbol{Name: "c", Scope: LocalScope, Index: 0},
+				Symbol{Name: "d", Scope: LocalScope, Index: 1},
+			},
+			[]Symbol{},
+		},
+		{
+			secondLocal,
+			[]Symbol{
+				Symbol{Name: "a", Scope: GlobalScope, Index: 0},
+				Symbol{Name: "b", Scope: GlobalScope, Index: 1},
+				Symbol{Name: "c", Scope: FreeScope, Index: 0},
+				Symbol{Name: "d", Scope: FreeScope, Index: 1},
+				Symbol{Name: "e", Scope: LocalScope, Index: 0},
+				Symbol{Name: "f", Scope: LocalScope, Index: 1},
+			},
+			[]Symbol{
+				Symbol{Name: "c", Scope: LocalScope, Index: 0},
+				Symbol{Name: "d", Scope: LocalScope, Index: 1},
+			},
+		},
+		{
+			thirdLocal,
+			[]Symbol{
+				Symbol{Name: "a", Scope: GlobalScope, Index: 0},
+				Symbol{Name: "b", Scope: GlobalScope, Index: 1},
+				Symbol{Name: "c", Scope: FreeScope, Index: 0},
+				Symbol{Name: "d", Scope: FreeScope, Index: 1},
+				Symbol{Name: "e", Scope: FreeScope, Index: 2},
+				Symbol{Name: "f", Scope: FreeScope, Index: 3},
+				Symbol{Name: "g", Scope: LocalScope, Index: 0},
+				Symbol{Name: "h", Scope: LocalScope, Index: 1},
+			},
+			[]Symbol{
+				Symbol{Name: "c", Scope: FreeScope, Index: 0},
+				Symbol{Name: "d", Scope: FreeScope, Index: 1},
+				Symbol{Name: "e", Scope: LocalScope, Index: 0},
+				Symbol{Name: "f", Scope: LocalScope, Index: 1},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		for _, sym := range tt.expectedSymbols {
+			result, ok := tt.table.Resolve(sym.Name)
+			if !ok {
+				t.Errorf("name %s not resolvable", sym.Name)
+				continue
+			}
+			if result != sym {
+				t.Errorf("expected %s to resolve to %+v, got=%+v",
+					sym.Name, sym, result)
+			}
+		}
+
+		for i, sym := range tt.expectedFreeSymbols {
+			result := tt.table.FreeSymbols[i]
+			if result != sym {
+				t.Errorf("wrong free symbol. got=%+v, want=%+v",
+					result, sym)
+			}
+		}
+	}
+}
+
+func TestResolveUnresolvableFree(t *testing.T) {
+	global := NewSymbolTable()
+	global.Define("a")
+
+	firstLocal := NewEnclosedSymbolTable(global)
+	firstLocal.Define("c")
+
+	secondLocal := NewEnclosedSymbolTable(firstLocal)
+	secondLocal.Define("e")
+	secondLocal.Define("f")
+
+	expected := []Symbol{
+		Symbol{Name: "a", Scope: GlobalScope, Index: 0},
+		Symbol{Name: "c", Scope: FreeScope, Index: 0},
+		Symbol{Name: "e", Scope: LocalScope, Index: 0},
+		Symbol{Name: "f", Scope: LocalScope, Index: 1},
+	}
+
+	for _, sym := range expected {
+		result, ok := secondLocal.Resolve(sym.Name)
+		if !ok {
+			t.Errorf("name %s not resolvable", sym.Name)
+			continue
+
+			if result != sym {
+				t.Errorf("expected to %s to resolve to %+v, got=%+v",
+					sym.Name, sym, result)
+			}
+		}
+	}
+
+	expectedUnresolvable := []string{
+		"b",
+		"d",
+	}
+
+	for _, name := range expectedUnresolvable {
+		_, ok := secondLocal.Resolve(name)
+		if ok {
+			t.Errorf("name %s resolved, but was expectd not to", name)
+		}
+	}
+}

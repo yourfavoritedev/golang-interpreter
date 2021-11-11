@@ -7,6 +7,7 @@ const (
 	LocalScope   SymbolScope = "LOCAL"
 	GlobalScope  SymbolScope = "GLOBAL"
 	BuiltinScope SymbolScope = "BUILTIN"
+	FreeScope    SymbolScope = "FREE"
 )
 
 // Symbol is the struct that holds all the necessary information about a symbol
@@ -24,16 +25,19 @@ type Symbol struct {
 // The store maps the identifiers (strings) with their corresponding Symbol.
 // numDefinitions simply refers to the total number of unique definitions in the store.
 // Outer points to the SymbolTable that encloses the current one.
+// FreeSymbols refers to the free-variables defined in the Symbol Tables enclosing scopes (if any).
 type SymbolTable struct {
 	Outer          *SymbolTable
 	store          map[string]Symbol
 	numDefinitions int
+	FreeSymbols    []Symbol
 }
 
 // NewSymbolTable creates a new SymbolTable with an empty store
 func NewSymbolTable() *SymbolTable {
 	s := make(map[string]Symbol)
-	return &SymbolTable{store: s}
+	free := []Symbol{}
+	return &SymbolTable{store: s, FreeSymbols: free}
 }
 
 // Define sets an identifier/symbol association in the SymbolTable's store.
@@ -69,9 +73,35 @@ func (st *SymbolTable) Resolve(name string) (Symbol, bool) {
 	symbol, ok := st.store[name]
 	if !ok && st.Outer != nil {
 		symbol, ok = st.Outer.Resolve(name)
-		return symbol, ok
+		if !ok {
+			return symbol, ok
+		}
+
+		if symbol.Scope == GlobalScope || symbol.Scope == BuiltinScope {
+			return symbol, ok
+		}
+
+		// at this point, if the symbol was found (is ok) and none of the scopes above match,
+		// we need to add the symbol to the current symbolTable's FreeSymbols and return a
+		// FreeScoped version of it
+		free := st.defineFree(symbol)
+		return free, true
 	}
 	return symbol, ok
+}
+
+// defineFree adds a identifier/symbol association in the SymbolTable's store.
+// It adds original, a Symbol from the enclosing scope into the symbolTables FreeSymbols.
+// It returns a FreeScope version of the original symbol with the index updated to reflect
+// the position of the newly added symbol in FreeSymbols
+func (s *SymbolTable) defineFree(original Symbol) Symbol {
+	s.FreeSymbols = append(s.FreeSymbols, original)
+
+	symbol := Symbol{Name: original.Name, Index: len(s.FreeSymbols) - 1}
+	symbol.Scope = FreeScope
+
+	s.store[original.Name] = symbol
+	return symbol
 }
 
 // NewEnclosedSymbolTable creates a new SymbolTable enclosed by an outer SymbolTable.
