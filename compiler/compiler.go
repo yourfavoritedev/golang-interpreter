@@ -357,7 +357,12 @@ func (c *Compiler) Compile(node ast.Node) error {
 		numLocals := c.symbolTable.numDefinitions
 		instructions := c.leaveScope()
 
-		// load an Opcode instruction for all freeSymbols (free variables) captured in this function
+		// Before leaving the inner-function's scope, we stored its free-variables in freeSymbols.
+		// Now in the enclosing scope, we need to emit instructions to load these free-variables for the inner function.
+		// The free-variables are inherited from the enclosing scope, so it has the responsibility of loading
+		// them with the right Opcode instructions. ie: fn(a) { fn() { a; }} The closure for fn(a) should have instructions to load
+		// a on to the stack so that  fn() { a; } can execute correctly.
+		// These new instructions will belong to the enclosing scope and they will be in a compiledFunction constant in the constants pool
 		for _, s := range freeSymbols {
 			c.loadSymbol(s)
 		}

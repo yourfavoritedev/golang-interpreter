@@ -294,11 +294,24 @@ func (vm *VM) Run() error {
 		case code.OpClosure:
 			// grab the index of the object.CompiledFunction in the constants pool
 			constIndex := code.ReadUint16(ins[ip+1:])
-			// TO-DO: operand work on free variable
-			_ = ins[ip+3]
+			// grab the number of free variables used by this closure
+			numFree := ins[ip+3]
 			vm.currentFrame().ip += 3
 			// push closure to stack
-			err := vm.pushClosure(int(constIndex))
+			err := vm.pushClosure(int(constIndex), int(numFree))
+			if err != nil {
+				return err
+			}
+
+		// Execute OpGetFree instruction
+		case code.OpGetFree:
+			operand := ins[ip+1]
+			freeIndex := int(operand)
+			vm.currentFrame().ip += 1
+
+			// grab free-variable from currentClosure
+			currentClosure := vm.currentFrame().cl
+			err := vm.push(currentClosure.Free[freeIndex])
 			if err != nil {
 				return err
 			}
@@ -692,7 +705,7 @@ func (vm *VM) callClosure(cl *object.Closure, numArgs int) error {
 
 // pushClosure grabs a compiledFunction at the given constIndex in the constants pool,
 // wraps it in a Closure and pushes it onto the stack
-func (vm *VM) pushClosure(constIndex int) error {
+func (vm *VM) pushClosure(constIndex, numFree int) error {
 	constant := vm.constants[constIndex]
 	// assert that constant is a compiledFuncion
 	function, ok := constant.(*object.CompiledFunction)
@@ -700,7 +713,15 @@ func (vm *VM) pushClosure(constIndex int) error {
 		return fmt.Errorf("not a function: %+v", constant)
 	}
 
-	closure := &object.Closure{Fn: function}
+	// grab free-variables on stack and put them in the Closure
+	free := make([]object.Object, numFree)
+	for i := 0; i < numFree; i++ {
+		free[i] = vm.stack[vm.sp-numFree+i]
+	}
+	// after grabbing all the free variables, clean-up the stack, set sp to the start of the used free-variables position
+	vm.sp = vm.sp - numFree
+
+	closure := &object.Closure{Fn: function, Free: free}
 	return vm.push(closure)
 }
 
