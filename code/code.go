@@ -105,6 +105,7 @@ const (
 	OpGetBuiltin
 	OpClosure
 	OpGetFree
+	OpCurrentClosure
 )
 
 // Definition helps us understand Opcode defintions. A Definition
@@ -154,7 +155,8 @@ var definitions = map[Opcode]*Definition{
 	OpClosure:       {"OpClosure", []int{2, 1}},    /**OpClosure has two operands. The first operand is two-bytes wide and refers to the
 	index of the object.CompiledFunction in the constants pool. The second operand is one-byte wide and specifies how many free variables sit on the stack and need to
 	be transferred to the about-to-be-created closure **/
-	OpGetFree: {"OpGetFree", []int{1}}, //OpGetFree has one one-byte operand. The operand refers to the unique index of a free variable.
+	OpGetFree:        {"OpGetFree", []int{1}},       //OpGetFree has one one-byte operand. The operand refers to the unique index of a free variable.
+	OpCurrentClosure: {"OpCurrentClosure", []int{}}, //OpCurrentClosure does not have any operands
 }
 
 // Lookup simply finds the definition of the provided op (Opcode)

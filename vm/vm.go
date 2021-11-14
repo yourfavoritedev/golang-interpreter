@@ -309,9 +309,18 @@ func (vm *VM) Run() error {
 			freeIndex := int(operand)
 			vm.currentFrame().ip += 1
 
-			// grab free-variable from currentClosure
+			// grab free-variable from currentClosure and push it to the stack
 			currentClosure := vm.currentFrame().cl
 			err := vm.push(currentClosure.Free[freeIndex])
+			if err != nil {
+				return err
+			}
+
+		// Execute OpCurrentClosure instruction
+		case code.OpCurrentClosure:
+			// grab the current closure being executed and push it to the stack
+			currentClosure := vm.currentFrame().cl
+			err := vm.push(currentClosure)
 			if err != nil {
 				return err
 			}

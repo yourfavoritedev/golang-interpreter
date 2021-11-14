@@ -240,12 +240,12 @@ func (c *Compiler) Compile(node ast.Node) error {
 
 	// compile a let statement and update the symbolTable
 	case *ast.LetStatement:
+		// define the identifier in the symbol table
+		symbol := c.symbolTable.Define(node.Name.Value)
 		err := c.Compile(node.Value)
 		if err != nil {
 			return err
 		}
-		// define the identifier in the symbol table
-		symbol := c.symbolTable.Define(node.Name.Value)
 		// the symbol for that identifier now has an index, which we use as an operand
 		// to construct the instruction
 		if symbol.Scope == GlobalScope {
@@ -329,6 +329,11 @@ func (c *Compiler) Compile(node ast.Node) error {
 	// constants pool and finally emit an OpClosure instruction for the function literal.
 	case *ast.FunctionLiteral:
 		c.enterScope()
+
+		// define function's name to symbol table if it exists
+		if node.Name != "" {
+			c.symbolTable.DefineFunctionName(node.Name)
+		}
 
 		// bind parameters to the function's symbole table
 		for _, p := range node.Parameters {
@@ -564,6 +569,8 @@ func (c *Compiler) loadSymbol(s Symbol) {
 		c.emit(code.OpGetBuiltin, s.Index)
 	case FreeScope:
 		c.emit(code.OpGetFree, s.Index)
+	case FunctionScope:
+		c.emit(code.OpCurrentClosure)
 	}
 }
 
