@@ -7,19 +7,22 @@ import (
 	"strings"
 
 	"github.com/yourfavoritedev/golang-interpreter/ast"
+	"github.com/yourfavoritedev/golang-interpreter/code"
 )
 
 const (
-	INTEGER_OBJ      = "INTEGER"
-	BOOLEAN_OBJ      = "BOOLEAN"
-	NULL_OBJ         = "NULL"
-	RETURN_VALUE_OBJ = "RETURN_VALUE"
-	ERROR_OBJ        = "ERROR"
-	FUNCTION_OBJ     = "FUNCTION"
-	STRING_OBJ       = "STRING"
-	BUILTIN_OBJ      = "BUILTIN"
-	ARRAY_OBJ        = "ARRAY"
-	HASH_OBJ         = "HASH"
+	INTEGER_OBJ           = "INTEGER"
+	BOOLEAN_OBJ           = "BOOLEAN"
+	NULL_OBJ              = "NULL"
+	RETURN_VALUE_OBJ      = "RETURN_VALUE"
+	ERROR_OBJ             = "ERROR"
+	FUNCTION_OBJ          = "FUNCTION"
+	STRING_OBJ            = "STRING"
+	BUILTIN_OBJ           = "BUILTIN"
+	ARRAY_OBJ             = "ARRAY"
+	HASH_OBJ              = "HASH"
+	COMPILED_FUNCTION_OBJ = "COMPILED_FUNCTION_OBJ"
+	CLOSURE_OBJ           = "CLOSURE"
 )
 
 // ObjectType is the type that represents an evaluated value as a string
@@ -240,7 +243,7 @@ type HashKey struct {
 	Value uint64
 }
 
-// Hash is the referenced stuct for Hash Literals in our object system
+// Hash is the referenced strsuct for Hash Literals in our object system
 // The Pairs field holds the evaluated map of the hash literal.
 type Hash struct {
 	Pairs map[HashKey]HashPair
@@ -270,4 +273,43 @@ func (h *Hash) Inspect() string {
 // usable as a hash key when we evaluate hash literals or index expressions for hashes.
 type Hashable interface {
 	HashKey() HashKey
+}
+
+// CompiledFunction is the referenced struct for compiled functions in our object system.
+// The Instructions field holds the bytecode instructions from compiling a function literal.
+// NumLocals is the number of local bindings in the function.
+// CompiledFunction is intended to be a bytecode constant, it will be loaded on to
+// to the stack and eventually used by the VM when it executes the function as a call expression instruction (OpCall).
+type CompiledFunction struct {
+	Instructions  code.Instructions
+	NumLocals     int
+	NumParameters int
+}
+
+// Type returns the ObjectType (COMPILED_FUNCTION_OBJ) associated with the referenced CompiledFunction struct
+func (cf *CompiledFunction) Type() ObjectType { return COMPILED_FUNCTION_OBJ }
+
+// Inspect will simply return a preformatted string for the CompiledFunction with its memory-address.
+func (cf *CompiledFunction) Inspect() string {
+	return fmt.Sprintf("CompiledFunction[%p]", cf)
+}
+
+// Closure is the referenced struct for closures in the object system.
+// Fn points to the CompiledFunction enclosed by the closure.
+// Free is a slice that keeps track of the free-variables relevant to the closure.
+// A Closure struct will be constructed during run-time (when the VM executes)
+// The Compiler provides an OpClosure instruction and the VM executes it,
+// the will wrap an *object.CompiledFunction from the constants pool in a new Closure and put it on the stack.
+// NOTE: All *object.CompiledFunctions will be wrapped by a Closure.
+type Closure struct {
+	Fn   *CompiledFunction
+	Free []Object
+}
+
+// Type returns the ObjectType (CLOSURE_OBJ) associated with the referenced CLOSURE_OBJ struct
+func (c *Closure) Type() ObjectType { return CLOSURE_OBJ }
+
+// Inspect will simply return a preformatted string for the Closure with its memory-address.
+func (c *Closure) Inspect() string {
+	return fmt.Sprintf("Closure[%p]", c)
 }

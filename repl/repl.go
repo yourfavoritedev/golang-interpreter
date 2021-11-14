@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/yourfavoritedev/golang-interpreter/evaluator"
+	"github.com/yourfavoritedev/golang-interpreter/compiler"
 	"github.com/yourfavoritedev/golang-interpreter/lexer"
 	"github.com/yourfavoritedev/golang-interpreter/object"
 	"github.com/yourfavoritedev/golang-interpreter/parser"
+	"github.com/yourfavoritedev/golang-interpreter/vm"
 )
 
 const PROMPT = ">> "
@@ -17,7 +18,14 @@ const MONKEY_FACE = "@(^_^)@\n"
 func Start(in io.Reader, out io.Writer) {
 	// scanner helps intake standard input (from user) as a data stream
 	scanner := bufio.NewScanner(in)
-	env := object.NewEnvironment()
+
+	// helps us preserve the work when running multiple compilations
+	constants := []object.Object{}
+	globals := make([]object.Object, vm.GlobalsSize)
+	symbolTable := compiler.NewSymbolTable()
+	for i, v := range object.Builtins {
+		symbolTable.DefineBuiltin(i, v.Name)
+	}
 
 	// keep accepting standard input until the user forcefully stops the program
 	for {
@@ -45,13 +53,28 @@ func Start(in io.Reader, out io.Writer) {
 			continue
 		}
 
-		// evaluate the AST
-		evaluated := evaluator.Eval(program, env)
-		if evaluated != nil {
-			// write program string to output
-			io.WriteString(out, evaluated.Inspect())
-			io.WriteString(out, "\n")
+		// compile the program
+		comp := compiler.NewWithState(symbolTable, constants)
+		err := comp.Compile(program)
+		if err != nil {
+			fmt.Fprintf(out, "Woops! Compilation failed:\n %s\n", err)
+			continue
 		}
+
+		// execute the program
+		code := comp.Bytecode()
+		constants = code.Constants
+		machine := vm.NewWithGlobalStore(code, globals)
+		err = machine.Run()
+		if err != nil {
+			fmt.Fprintf(out, "Woops! Executing bytecode failed:\n %s\n", err)
+			continue
+		}
+
+		lastPopped := machine.LastPoppedStackElem()
+		// write program string to output
+		io.WriteString(out, lastPopped.Inspect())
+		io.WriteString(out, "\n")
 	}
 }
 

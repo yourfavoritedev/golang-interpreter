@@ -161,6 +161,12 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 	// construct expression for let statement
 	stmt.Value = p.parseExpression(LOWEST)
 
+	// if the expression is a function-literal, define the Name field for that expression node
+	// using the LetStatement's Name
+	if fl, ok := stmt.Value.(*ast.FunctionLiteral); ok {
+		fl.Name = stmt.Name.Value
+	}
+
 	// advance tokens if peekToken is a semicolon.
 	// we can assume everything before the semicolon has been examined (foobar;),
 	// semicolons are optional and not required by expression statements

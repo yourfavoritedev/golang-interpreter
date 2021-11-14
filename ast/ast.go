@@ -2,6 +2,7 @@ package ast
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 
 	"github.com/yourfavoritedev/golang-interpreter/token"
@@ -290,6 +291,7 @@ type FunctionLiteral struct {
 	Token      token.Token     // The 'fn' token
 	Parameters []*Identifier   // The parameters of the function
 	Body       *BlockStatement // The collection of statements in the body of the function
+	Name       string          // The name the function is bound to
 }
 
 // expressionNode is implemented to allow FunctionLiteral to be served as an Expression
@@ -311,6 +313,9 @@ func (fl *FunctionLiteral) String() string {
 	}
 
 	out.WriteString(fl.TokenLiteral())
+	if fl.Name != "" {
+		out.WriteString(fmt.Sprintf("%s", fl.Name))
+	}
 	out.WriteString("(")
 	out.WriteString(strings.Join(params, ", "))
 	out.WriteString(") ")
