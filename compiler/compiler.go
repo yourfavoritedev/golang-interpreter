@@ -34,7 +34,7 @@ type EmittedInstruction struct {
 // of a node. Nodes like *ast.FunctionLiteral and others that require their own scope,
 // need to emit and keep track of their own instructions so that
 // they don't become entangled in the parent/global scope.
-// LastInstruction is the very last instruction that was omitted.
+// LastInstruction is the most recent instruction that was emitted in this scope.
 // PreviousInstruction is the one before that.
 type CompilationScope struct {
 	instructions        code.Instructions
