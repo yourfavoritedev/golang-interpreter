@@ -73,8 +73,8 @@ type Opcode byte
 // Opcodes, when defined, will have ever increasing byte values. (+1 from the previous definition)
 // The value is not relevant to us, they only need to be distinct from
 // each other and fit in one byte. When the VM executes a specific Op like OpConstant,
-// it will use the iota-generated-value (Opcode) as an index to retrieve
-// the constant (the evaluted expression, object.Object) and push it to the stack.
+// it will decode the corresponding operand, getting back the index
+// the constant (the evaluted expression, object.Object) in the constants pool and push it to the stack.
 const (
 	OpConstant Opcode = iota
 	OpAdd
@@ -235,7 +235,7 @@ func ReadOperands(def *Definition, ins Instructions) ([]int, int) {
 	return operands, offset
 }
 
-// ReadUint16 helps use decode the operand correctly. Typically, when we
+// ReadUint16 helps decode the operand correctly. Typically, when we
 // call this function to decode an operand, we pass the entire
 // instructions ([]byte) starting with the operand and then everything else.
 // BigEndian.Uint16 will only return the first decodable int in the []byte
